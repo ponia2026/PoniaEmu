@@ -9,8 +9,8 @@
 # Usage: apk-name.sh [build dir] [suffix] [extension]
 #   suffix: _v8a for 64-bit Android, _v7a for 32-bit Android, _linux-x86_64 / _linux-arm64 / _linux-armhf for Linux (default: empty)
 #   extension: apk by default, tar.gz for the Linux archives
-#   the build dir defaults to ~/work/poniafe-android/build
-BUILD=${1:-$HOME/work/poniafe-android/build}
+#   the build dir defaults to ~/work/poniaemu-android/build
+BUILD=${1:-$HOME/work/poniaemu-android/build}
 H="$BUILD/generated/ponia_version.h"
 [ -f "$H" ] || { echo "no $H" >&2; exit 1; }
 get() { sed -n "s/^#define $1 \"\(.*\)\"$/\1/p" "$H"; }
