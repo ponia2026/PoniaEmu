@@ -86,6 +86,12 @@ if [ "${NO_DEPS:-0}" != 1 ]; then
             done
             return 1
         }
+        # A fresh install (or a container) has no package lists yet, and then every package looks "not available".
+        # libegl1 exists in every Debian/Ubuntu release, so if even that is missing the lists are empty: update them once.
+        if ! apt-cache policy libegl1 2>/dev/null | grep -q "Candidate: [^(]"; then
+            say "The package lists are empty, updating them (apt-get update) ..."
+            run $SUDO apt-get update || say "note: apt-get update failed, check the network and the apt sources."
+        fi
         PKGS=""
         # libgles2/libegl1/libgbm1: the player draws through SDL on KMS/DRM and needs the GLES library; without it a game runs with sound but no picture
         for p in libsdl2-2.0-0 libgles2 libegl1 libgbm1 \
@@ -97,6 +103,13 @@ if [ "${NO_DEPS:-0}" != 1 ]; then
                  qml6-module-qtmultimedia qml6-module-qt5compat-graphicaleffects; do
             if q="$(pick_pkg "$p")"; then PKGS="$PKGS $q"; else say "note: package $p is not available here, skipping."; fi
         done
+        if [ "${DRY_RUN:-0}" != 1 ] && ! apt-cache policy libqt6core6 libqt6core6t64 2>/dev/null | grep -q "Candidate: [^(]"; then
+            say ""
+            say "The Qt 6 packages are not in your package sources. On Ubuntu they are in the 'universe' component; enable it with:"
+            say "    sudo add-apt-repository universe && sudo apt-get update"
+            say "and run this script again. (Debian and Armbian need no extra step.)"
+            exit 1
+        fi
         run $SUDO apt-get install -y $PKGS
     else
         say "note: no apt found. Please install Qt 6.4+ (Quick, Controls, Multimedia, Qt5Compat, Svg) and SDL2 yourself."
