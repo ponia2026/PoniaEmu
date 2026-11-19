@@ -165,7 +165,7 @@ void add_metadata_fingerprints_flat(QJsonArray& out, const QString& dir_path)
         add_file_fingerprint(out, it.next());
 }
 
-// PoniaFE: metadata files are also searched one level down (see PegasusProvider), so fingerprint those too.
+// PoniaEmu: metadata files are also searched one level down (see PegasusProvider), so fingerprint those too.
 void add_metadata_fingerprints(QJsonArray& out, const QString& dir_path)
 {
     add_metadata_fingerprints_flat(out, dir_path);

@@ -48,7 +48,7 @@ public slots:
     void onLaunchRequested(const model::GameFile*);
     void onTeardownComplete();
     // Android: the launched app is a separate activity, so nobody reports its end; the Backend calls this
-    // when PoniaFE comes back to the foreground.
+    // when PoniaEmu comes back to the foreground.
     void onAndroidReturned() { emit processFinished(); }
 
 private slots:

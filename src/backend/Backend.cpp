@@ -101,7 +101,7 @@ void register_api_classes()
     //   this should come before the ApiObject constructor,
     //   as that may produce language change signals
 
-    // PoniaFE: the same types are available as both `Pegasus.*` (for existing
+    // PoniaEmu: the same types are available as both `Pegasus.*` (for existing
     // Pegasus themes) and `Ponia.*` (for new themes)
     constexpr const char* API_URIS[] = { "Pegasus.Model", "Ponia.Model" };
     const QString error_msg = LOGMSG("Sorry, you cannot create this type in QML.");

@@ -31,7 +31,7 @@
 namespace {
 bool is_metadata_file(const QString& filename)
 {
-    // PoniaFE: `metadata.ponia.txt` is an alias of `metadata.pegasus.txt`
+    // PoniaEmu: `metadata.ponia.txt` is an alias of `metadata.pegasus.txt`
     return filename == QLatin1String("metadata.pegasus.txt")
         || filename == QLatin1String("metadata.ponia.txt")
         || filename == QLatin1String("metadata.txt")
@@ -71,7 +71,7 @@ std::vector<QString> find_all_metafiles(const QStringList& gamedirs)
             std::make_move_iterator(local_metafiles.begin()),
             std::make_move_iterator(local_metafiles.end()));
 
-        // PoniaFE: also look one level down, so adding the `Ponia.Roms` root folder
+        // PoniaEmu: also look one level down, so adding the `Ponia.Roms` root folder
         // finds the per-platform metadata files in its subfolders.
         QDirIterator sub_it(dir_path, QDir::Dirs | QDir::NoDotAndDotDot);
         while (sub_it.hasNext()) {

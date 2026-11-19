@@ -426,7 +426,7 @@ void test_PegasusProvider::multifile()
 
 void test_PegasusProvider::ponia_alias()
 {
-    // PoniaFE: `metadata.ponia.txt` should work the same as `metadata.pegasus.txt`
+    // PoniaEmu: `metadata.ponia.txt` should work the same as `metadata.pegasus.txt`
     QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/ponia_alias/metadata.ponia.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/ponia_alias")});
