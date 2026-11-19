@@ -15,7 +15,7 @@
 #   PREFIX=/opt/x    install somewhere else (default /usr/local)
 #   NO_DEPS=1        do not touch the system packages
 #   DRY_RUN=1        only print what would be done
-#   AUTOMOUNT=1|0    install (default, 1) or skip (0) the automount of external disks, see automount.sh
+#   AUTOMOUNT=1|0    install (1) or skip (0) the automount of external disks, see automount.sh; default: install it only when no desktop runs
 #   SOUND_SERVER=1|0 install (default, 1) or skip (0) a PulseAudio server on a box that has none, see below
 #   HDMI_VOLUME=N    set the HDMI output level to N percent on boards that have a gain control (default 80, 0 = leave it alone)
 # Remove it again with:  sh install.sh --uninstall
@@ -137,7 +137,13 @@ done
 
 # Mount every disk that is not the system disk under /media/<label>, when it is plugged in and at boot.
 # The helper skips whatever is already mounted and never touches the disk that holds the system.
-if [ "${AUTOMOUNT:-1}" = 1 ] && command -v systemctl >/dev/null 2>&1; then
+# A desktop (GNOME, KDE ...) mounts disks for the logged-in user by itself, and a second mount owned by root would only get in
+# the way, so by default this is installed only on a box without a desktop session; AUTOMOUNT=1 forces it.
+AM="${AUTOMOUNT:-auto}"
+if [ "$AM" = auto ]; then
+    if command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet display-manager.service 2>/dev/null; then AM=1; else AM=0; fi
+fi
+if [ "$AM" = 1 ] && command -v systemctl >/dev/null 2>&1; then
     say "Installing the automount for external disks (remove it with: sh automount.sh --uninstall) ..."
     curl -fsSL "https://raw.githubusercontent.com/$REPO/qt6/etc/linux/automount.sh" | $SUDO sh || say "note: the automount could not be installed, skipping."
 fi
@@ -212,6 +218,5 @@ fi
 
 say ""
 say "Installed. Start it with:  poniaemu"
+say "It works from a desktop session and on a plain console without a desktop (it picks the screen output by itself)."
 say "Games and BIOS files are not included, see the README for where to put them."
-say ""
-say "Start it from a desktop session, or on a console without a desktop with:  QT_QPA_PLATFORM=eglfs poniaemu"
