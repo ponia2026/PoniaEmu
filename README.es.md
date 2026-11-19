@@ -62,6 +62,23 @@ Notas:
 
 El núcleo de GameCube no está disponible en ARM de 32 bits, porque Dolphin no tiene JIT para ARM32.
 
+## Controles
+
+PoniaEmu siempre trata el mando como un [mando estilo Xbox](doc/img/pad-xbox-style.png), sin importar lo que lleven impreso los botones:
+el botón de abajo es **A**, el de la derecha **B**, el de la izquierda **X** y el de arriba **Y**.
+
+La **tecla rápida** es el botón **SELECT**. Mantenla pulsada y pulsa otro botón:
+
+| Combinación | Acción |
+| --- | --- |
+| Tecla rápida + START | Salir del juego |
+| Tecla rápida + R1 (gatillo superior derecho) | Guardar un estado |
+| Tecla rápida + L1 (gatillo superior izquierdo) | Cargar un estado |
+| Tecla rápida + X (izquierda) | Cambiar la resolución de 1X a 4X, en ciclo |
+| Tecla rápida + Y (arriba) | Mostrar u ocultar los FPS |
+| Tecla rápida + R2 | Avance rápido |
+| Tecla rápida + L2 | Rebobinar |
+
 ## Compilación
 
 PoniaEmu usa CMake. Necesitas un compilador C++17, CMake 3.16 o posterior, Ninja y Qt **6.4 o posterior** (Qt Quick, Qt Quick

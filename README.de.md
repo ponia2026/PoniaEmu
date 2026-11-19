@@ -63,6 +63,23 @@ Hinweise:
 
 Der GameCube-Core ist auf 32-Bit-ARM nicht verfügbar, weil Dolphin keinen ARM32-JIT hat.
 
+## Steuerung
+
+PoniaEmu behandelt jedes Gamepad immer als [Xbox-Pad](doc/img/pad-xbox-style.png), egal was auf den Tasten aufgedruckt ist:
+Die untere Taste ist **A**, die rechte **B**, die linke **X** und die obere **Y**.
+
+Die **Hotkey-Taste** ist **SELECT**. Halte sie gedrückt und drücke eine weitere Taste:
+
+| Kombination | Aktion |
+| --- | --- |
+| Hotkey + START | Spiel beenden |
+| Hotkey + R1 (rechte Schultertaste) | Savestate speichern |
+| Hotkey + L1 (linke Schultertaste) | Savestate laden |
+| Hotkey + X (links) | Auflösung durchschalten, 1X bis 4X |
+| Hotkey + Y (oben) | FPS-Anzeige ein- oder ausblenden |
+| Hotkey + R2 | Vorspulen |
+| Hotkey + L2 | Zurückspulen |
+
 ## Kompilieren
 
 PoniaEmu verwendet CMake. Du brauchst einen C++17-Compiler, CMake 3.16 oder neuer, Ninja und Qt **6.4 oder neuer** (Qt Quick,

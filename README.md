@@ -62,6 +62,23 @@ Notes:
 
 The GameCube core is not available on 32-bit ARM, because Dolphin has no ARM32 JIT.
 
+## Controls
+
+PoniaEmu always treats a gamepad as an [Xbox-style pad](doc/img/pad-xbox-style.png), whatever is printed on its buttons:
+the button at the bottom is **A**, the one on the right is **B**, the one on the left is **X** and the one at the top is **Y**.
+
+The **Hotkey** is the **SELECT** button. Hold it and press another button:
+
+| Combination | Action |
+| --- | --- |
+| Hotkey + START | Quit the game |
+| Hotkey + R1 (right shoulder) | Save a state |
+| Hotkey + L1 (left shoulder) | Load a state |
+| Hotkey + X (left) | Cycle the resolution from 1X to 4X |
+| Hotkey + Y (top) | Show or hide the FPS counter |
+| Hotkey + R2 | Fast forward |
+| Hotkey + L2 | Rewind |
+
 ## Building
 
 PoniaEmu uses CMake. You need a C++17 compiler, CMake 3.16 or newer, Ninja, and Qt **6.4 or newer** (Qt Quick, Qt Quick

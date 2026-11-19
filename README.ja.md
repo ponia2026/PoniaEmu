@@ -62,6 +62,23 @@ PoniaEmu は [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend) を
 
 Dolphin には ARM32 向けの JIT がないため、32 ビット ARM では GameCube のコアは使えません。
 
+## 操作
+
+PoniaEmu は、ボタンに何と印刷されていても、ゲームパッドを常に [Xbox 式のパッド](doc/img/pad-xbox-style.png) として扱います。
+下のボタンが **A**、右が **B**、左が **X**、上が **Y** です。
+
+**ホットキー**は **SELECT** ボタンです。押したままほかのボタンを押します。
+
+| 組み合わせ | 動作 |
+| --- | --- |
+| ホットキー + START | ゲームを終了 |
+| ホットキー + R1（右ショルダー） | ステートセーブ |
+| ホットキー + L1（左ショルダー） | ステートロード |
+| ホットキー + X（左） | 解像度を 1X～4X で切り替え（循環） |
+| ホットキー + Y（上） | FPS 表示の切り替え |
+| ホットキー + R2 | 早送り |
+| ホットキー + L2 | 巻き戻し |
+
 ## ビルド
 
 PoniaEmu は CMake を使います。C++17 コンパイラ、CMake 3.16 以降、Ninja、Qt **6.4 以降** (Qt Quick、Qt Quick Controls 2、

@@ -62,6 +62,23 @@ Remarques :
 
 Le cœur GameCube n'est pas disponible sur ARM 32 bits, car Dolphin n'a pas de JIT ARM32.
 
+## Commandes
+
+PoniaEmu traite toujours une manette comme une [manette de style Xbox](doc/img/pad-xbox-style.png), quoi qu'il soit imprimé sur les boutons :
+le bouton du bas est **A**, celui de droite **B**, celui de gauche **X** et celui du haut **Y**.
+
+La **touche de raccourci** est le bouton **SELECT**. Maintenez-la et appuyez sur un autre bouton :
+
+| Combinaison | Action |
+| --- | --- |
+| Raccourci + START | Quitter le jeu |
+| Raccourci + R1 (gâchette supérieure droite) | Sauvegarder un état |
+| Raccourci + L1 (gâchette supérieure gauche) | Charger un état |
+| Raccourci + X (gauche) | Faire défiler la résolution de 1X à 4X |
+| Raccourci + Y (haut) | Afficher ou masquer les FPS |
+| Raccourci + R2 | Avance rapide |
+| Raccourci + L2 | Retour en arrière |
+
 ## Compilation
 
 PoniaEmu utilise CMake. Il faut un compilateur C++17, CMake 3.16 ou plus récent, Ninja, et Qt **6.4 ou plus récent** (Qt Quick, Qt Quick
