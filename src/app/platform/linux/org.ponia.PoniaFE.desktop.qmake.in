@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.1
 Type=Application
-Name=PoniaFE
+Name=PoniaEmu
 GenericName=Emulator Frontend
 Comment=A cross platform, customizable graphical frontend for launching emulators and managing your game collection.
 Exec=$${INSTALL_BINDIR}/poniafe

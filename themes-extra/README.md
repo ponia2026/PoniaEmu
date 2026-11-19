@@ -1,6 +1,6 @@
 # Bundled theme
 
-PoniaFE ships one theme, **Macaron** (`themes-extra/macaron`). It is installed to `<datadir>/poniafe/themes/`
+PoniaEmu ships one theme, **Macaron** (`themes-extra/macaron`). It is installed to `<datadir>/poniafe/themes/`
 (Android: packed into the APK `assets/themes/` and unpacked to the config directory on first launch) and is the default theme.
 A tiny fallback theme (`src/themes/ponia-fallback`) is built into the program and is only used when no other theme is found.
 

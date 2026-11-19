@@ -161,6 +161,17 @@ jobs:
           cmake --build build --target ponia_player
           cmake --build build --target poniafe_make_apk
 
+      # Guard: an APK without the player library installs fine but cannot start any game.
+      - name: Check that the player library is in the APK
+        run: |
+          APK="build/src/app/android-build/build/outputs/apk/debug/android-build-debug.apk"
+          if unzip -l "$APK" | grep -q "lib/${{ matrix.abi }}/libponia_player.so"; then
+            echo "libponia_player.so is in the APK."
+          else
+            echo "::error::libponia_player.so is missing from the APK."
+            exit 1
+          fi
+
       - name: Repack, sign and name the APK
         run: |
           mkdir -p dist
