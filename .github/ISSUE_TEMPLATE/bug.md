@@ -3,28 +3,27 @@ name: 🐜 Bug report
 about: Something that's supposed to work does not work or the program crashes.
 ---
 
-Hi, and thanks for reporting errors! You can help us locating the bug even more by providing detailed information in the sections below:
+Hi, and thanks for reporting errors! You can help us locate the bug even faster by providing detailed information in the sections below:
 
 ### The issue
 
-Describe here what you've tried to do, what you've expected to see and what actually happens. If necessary, describe step-by-step the way to reproduce the problem.
+Describe here what you've tried to do, what you expected to see and what actually happens. If necessary, describe step by step how to reproduce the problem.
 
-### System info
+### System and game
 
-Pegasus is available for many platforms, so please describe here where exactly you're using it, eg. "Windows 10 build 1234" or "Ubuntu 12.34". If it's not a desktop computer, or you see graphical glitches, please mention your hardware too, eg. "Debian Buster on a Raspberry Pi 4 with 2GB RAM", "Android 10 on SomePhone XY7", etc.
+- **Platform and device**: for example "Android 9 (64-bit) on SomeTV Box", "Debian 12 on a Raspberry Pi 4 with 2GB RAM". For graphical glitches or slow games, please mention the CPU/GPU too.
+- **System and core**: which system the game belongs to (for example PlayStation, Nintendo 64) and, if you know it, which core runs it.
+- **ROM format**: for example `.chd`, `.zip`, `.7z`.
 
-### Pegasus version
+### PoniaEmu version
 
-When you open the main menu of Pegasus you can see it in the bottom left corner of the screen. Also, have you tried the latest version? It might already have a fix for the problem!
+Open the Help screen and look at the About section. Also, have you tried the latest release? It might already have a fix for the problem!
 
-### Pegasus log
+### Log
 
-You can find a log file with detailed information about the launch of Pegasus under the following locations:
+PoniaEmu writes a log file about the last launch. It is named `lastrun.log` and lives in the `poniafe` configuration folder:
 
-- Windows: `C:\Users\[username]\AppData\Local\pegasus-frontend\lastrun.log`
-- Linux: `~/.config/pegasus-frontend/lastrun.log`
-- macOS: `~/Library/Preferences/pegasus-frontend/lastrun.log`
-- Android: `<storage>/pegasus-frontend/lastrun.log`
-- portable mode: `<directory of the program>/config/lastrun.log`
+- Linux: `~/.config/poniafe/lastrun.log`
+- Android: in the `poniafe` folder of your storage (the "no games found" screen also shows the exact path)
 
 If possible, please attach the file to this bug report.
