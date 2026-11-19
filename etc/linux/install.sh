@@ -15,7 +15,8 @@
 #   PREFIX=/opt/x    install somewhere else (default /usr/local)
 #   NO_DEPS=1        do not touch the system packages
 #   DRY_RUN=1        only print what would be done
-#   AUTOMOUNT=1|0    install (1) or skip (0) the disk automount, see automount.sh; default: only when no desktop runs
+#   AUTOMOUNT=1|0    install (default, 1) or skip (0) the automount of external disks, see automount.sh
+#   HDMI_VOLUME=N    set the HDMI output level to N percent on boards that have a gain control (default 80, 0 = leave it alone)
 # Remove it again with:  sh install.sh --uninstall
 set -eu
 
@@ -132,15 +133,29 @@ for f in "$PREFIX/share/applications/org.ponia.PoniaFE.desktop" "$PREFIX/share/m
     [ -e "$f" ] && $SUDO rm -f "$f"
 done
 
-# A box without a desktop has nothing that mounts USB/SATA/NVMe disks, so install the automount there
-# (it never touches the disk that holds the system). A desktop mounts disks by itself, so it is skipped then.
-AM="${AUTOMOUNT:-auto}"
-if [ "$AM" = auto ]; then
-    if command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet display-manager.service 2>/dev/null; then AM=1; else AM=0; fi
-fi
-if [ "$AM" = 1 ]; then
+# Mount every disk that is not the system disk under /media/<label>, when it is plugged in and at boot.
+# The helper skips whatever is already mounted and never touches the disk that holds the system.
+if [ "${AUTOMOUNT:-1}" = 1 ] && command -v systemctl >/dev/null 2>&1; then
     say "Installing the automount for external disks (remove it with: sh automount.sh --uninstall) ..."
     curl -fsSL "https://raw.githubusercontent.com/$REPO/qt6/etc/linux/automount.sh" | $SUDO sh || say "note: the automount could not be installed, skipping."
+fi
+
+# Amlogic boards: the HDMI audio output has a software gain that starts disabled (= full level, very loud on a TV).
+# Find the TDM output that feeds HDMI, set it to HDMI_VOLUME percent and save the mixer state so it survives a reboot.
+HV="${HDMI_VOLUME:-80}"
+if [ "$HV" -gt 0 ] 2>/dev/null && command -v amixer >/dev/null 2>&1; then
+    for card in $(awk '/^ *[0-9]+ \[/ {print $1}' /proc/asound/cards 2>/dev/null); do
+        src="$($SUDO amixer -c "$card" cget name='TOHDMITX I2S SRC' 2>/dev/null | sed -n 's/.*: values=\([0-9]*\).*/\1/p')"
+        [ -n "$src" ] || continue
+        case "$src" in 0) tdm=A ;; 1) tdm=B ;; 2) tdm=C ;; *) continue ;; esac
+        lvl=$((255 * HV / 100))
+        for lane in 0 1 2 3; do
+            $SUDO amixer -q -c "$card" cset name="TDMOUT_${tdm} Lane ${lane} Volume" "$lvl,$lvl" 2>/dev/null || true
+        done
+        $SUDO amixer -q -c "$card" cset name="TDMOUT_${tdm} Gain Enable Switch" on 2>/dev/null || true
+        $SUDO alsactl store 2>/dev/null || true
+        say "HDMI audio level set to ${HV}% (card $card, TDMOUT_${tdm})."
+    done
 fi
 
 command -v update-desktop-database >/dev/null 2>&1 && $SUDO update-desktop-database "$PREFIX/share/applications" >/dev/null 2>&1 || true

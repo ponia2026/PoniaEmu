@@ -52,8 +52,71 @@ inline const CoreInfo* core_info(const std::string& id) {
     return nullptr;
 }
 
-// System key (the result of resolve_system in ponia_systems.h) -> core id; Ports are handled separately and are not in this table.
-inline std::string core_id_for_system(const std::string& key) {
+// ---------- build targets and the per-target exclusion list ----------
+// The five targets PoniaEmu is built for. The target is fixed at compile time.
+enum class Target { LinuxX64, LinuxArm64, LinuxArm32, AndroidV8a, AndroidV7a };
+
+constexpr Target current_target() {
+#if defined(__ANDROID__)
+#  if defined(__aarch64__)
+    return Target::AndroidV8a;
+#  else
+    return Target::AndroidV7a;
+#  endif
+#elif defined(__aarch64__)
+    return Target::LinuxArm64;
+#elif defined(__arm__)
+    return Target::LinuxArm32;
+#else
+    return Target::LinuxX64;
+#endif
+}
+
+// One row = one core id or one system key that is NOT offered on that target. An excluded core is never downloaded
+// or started, and the frontend hides the systems that would need it (SearchContext::finalize_hide_unsupported).
+// To bring one back, delete its row. The reason says what has to change before the row can go.
+struct Exclusion { Target target; const char* what; const char* reason; };
+
+inline const Exclusion* exclusion_table(int& n) {
+    static const Exclusion T[] = {
+        // 32-bit ARM Linux: no build on the libretro buildbot (linux/armv7-neon-hf)
+        {Target::LinuxArm32, "melonds",          "no armhf build on the buildbot"},
+        {Target::LinuxArm32, "mamearcade",       "no armhf build; the 32-bit address space is too small for full MAME"},
+        {Target::LinuxArm32, "mupen64plus_next", "no armhf build on the buildbot"},
+        {Target::LinuxArm32, "flycast",          "no armhf build on the buildbot"},
+        {Target::LinuxArm32, "ppsspp",           "no armhf build on the buildbot"},
+        {Target::LinuxArm32, "dolphin",          "no ARM32 JIT"},
+        {Target::LinuxArm32, "yabasanshiro",     "no armhf build on the buildbot"},
+        {Target::LinuxArm32, "stella",           "no armhf build on the buildbot"},
+        {Target::LinuxArm32, "a5200",            "no armhf build on the buildbot"},
+        {Target::LinuxArm32, "applewin",         "no armhf build on the buildbot"},
+        {Target::LinuxArm32, "dosbox_pure",      "no armhf build on the buildbot"},
+        {Target::LinuxArm32, "retro8",           "no armhf build; fake08 is shipped with the package instead"},
+        // 64-bit ARM Linux: these buildbot builds link desktop OpenGL / X11, which GLES-only GPUs (Mali) do not provide
+        {Target::LinuxArm64, "mupen64plus_next", "buildbot build needs desktop OpenGL (libGL.so.1)"},
+        {Target::LinuxArm64, "yabasanshiro",     "buildbot build needs desktop OpenGL (libGL.so.1)"},
+        {Target::LinuxArm64, "ppsspp",           "buildbot build needs desktop OpenGL (libOpenGL/libGLX)"},
+        {Target::LinuxArm64, "dolphin",          "buildbot build needs X11/EGL"},
+        // 32-bit Android: Dolphin has no ARM32 JIT
+        {Target::AndroidV7a, "dolphin",          "no ARM32 JIT"},
+        // Ports are PC/Linux programs started through a launch command; there is nothing to run on Android
+        {Target::AndroidV8a, "ports",            "Linux programs only"},
+        {Target::AndroidV7a, "ports",            "Linux programs only"},
+    };
+    n = (int)(sizeof T / sizeof T[0]);
+    return T;
+}
+
+// Is this core id or system key excluded on the target this binary was built for?
+inline bool excluded(const char* what) {
+    int n; const Exclusion* T = exclusion_table(n);
+    for (int i = 0; i < n; ++i)
+        if (T[i].target == current_target() && std::strcmp(T[i].what, what) == 0) return true;
+    return false;
+}
+
+// System key (the result of resolve_system in ponia_systems.h) -> core id, ignoring the exclusion list; Ports are handled separately and are not in this table.
+inline const char* table_core_for_system(const std::string& key) {
     struct M { const char* sys; const char* core; };
     static const M T[] = {
         {"fc", "fceumm"}, {"gb", "gambatte"}, {"gbc", "gambatte"}, {"gba", "mgba"}, {"nds", "melonds"},
@@ -62,11 +125,21 @@ inline std::string core_id_for_system(const std::string& key) {
         {"mame", "mamearcade"}, {"n64", "mupen64plus_next"}, {"ps1", "pcsx_rearmed"}, {"dc", "flycast"},
         {"gc", "dolphin"}, {"psp", "ppsspp"}, {"saturn", "yabasanshiro"}, {"atari2600", "stella"}, {"atari5200", "a5200"}, {"atari7800", "prosystem"}, {"pico8", "fake08"}, {"apple2", "applewin"}, {"dos", "dosbox_pure"},
     };
-#if defined(__arm__) && !defined(__aarch64__)
-    if (key == "gc") return std::string();   // 32-bit ARM has no usable Dolphin core (no ARM JIT): not offered, and no download prompt either
-#endif
     for (const M& m : T) if (key == m.sys) return m.core;
-    return std::string();
+    return nullptr;
+}
+
+// The core for a system on this target; empty when the system has no core or its core is excluded here.
+inline std::string core_id_for_system(const std::string& key) {
+    const char* core = table_core_for_system(key);
+    return (core && !excluded(core)) ? std::string(core) : std::string();
+}
+
+// Should the frontend hide this system on this target: the system itself is excluded (such as Ports on Android) or its core is.
+inline bool system_hidden(const std::string& key) {
+    if (excluded(key.c_str())) return true;
+    const char* core = table_core_for_system(key);
+    return core && excluded(core);
 }
 
 // Systems that go through a "standalone emulator app": the installed app is started with am start and the game file. Returns nullptr when the system is not a standalone-emulator system.

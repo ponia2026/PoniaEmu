@@ -176,7 +176,7 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
     // No launch command given: known systems automatically use the built-in Libretro player (decided by the collection short name/name)
     if (launch_cmd_str.trimmed().isEmpty()) {
         const std::string key = ponia::system_key_for_game(game, &gamefile.fileinfo());
-        if (!key.empty()) {
+        if (!key.empty() && key != "ports") {   // Ports have no core; they need their own launch command
             const char* standalone = nullptr;
 #ifdef Q_OS_ANDROID
             standalone = ponia::standalone_launch_cmd(key);   // PSP / GameCube: hand over to an installed standalone emulator app

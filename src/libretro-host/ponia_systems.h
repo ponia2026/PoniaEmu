@@ -38,6 +38,7 @@ inline const SystemAlias* system_aliases(int& count) {
         {"dos", "dos,msdos,pcdos,dosbox"},
         {"psp", "psp,playstationportable"},
         {"saturn", "saturn,segasaturn,ss"},
+        {"ports", "ports,port"},   // no core: games are started with their own launch command (Linux only)
     };
     count = (int)(sizeof T / sizeof T[0]);
     return T;

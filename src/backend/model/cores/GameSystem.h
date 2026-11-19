@@ -17,14 +17,15 @@
 #include <QVariantMap>
 
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace ponia {
 
-// file: the ROM file to open this time; nullptr uses the first file of the game.
-inline std::string system_key_for_game(const model::Game& game, const QFileInfo* file = nullptr)
+inline std::string system_key_from_parts(const QVariantMap& extra, const QFileInfo& fi,
+                                         const std::vector<std::pair<QString, QString>>& collections)
 {
     // 1. x-system written by the game itself (Pegasus ignores fields that start with x-, so both are compatible)
-    const QVariantMap& extra = game.extraMap();
     const auto it = extra.constFind(QStringLiteral("system"));
     if (it != extra.cend()) {
         for (const QString& v : it.value().toStringList()) {
@@ -35,6 +36,24 @@ inline std::string system_key_for_game(const model::Game& game, const QFileInfo*
     }
 
     // 2. name of the folder that holds the ROM (FC, ATARI5200, FBNeo hack ...)
+    if (fi.exists() || !fi.filePath().isEmpty()) {
+        const std::string k = resolve_system(fi.absoluteDir().dirName().toStdString());
+        if (!k.empty())
+            return k;
+    }
+
+    // 3-4. collection short name, collection name
+    for (const auto& col : collections) {
+        const std::string k = resolve_system(col.first.toStdString(), col.second.toStdString());
+        if (!k.empty())
+            return k;
+    }
+    return std::string();
+}
+
+// file: the ROM file to open this time; nullptr uses the first file of the game.
+inline std::string system_key_for_game(const model::Game& game, const QFileInfo* file = nullptr)
+{
     QFileInfo fi;
     if (file) {
         fi = *file;
@@ -44,19 +63,10 @@ inline std::string system_key_for_game(const model::Game& game, const QFileInfo*
         if (!files.empty())
             fi = files.front()->fileinfo();
     }
-    if (fi.exists() || !fi.filePath().isEmpty()) {
-        const std::string k = resolve_system(fi.absoluteDir().dirName().toStdString());
-        if (!k.empty())
-            return k;
-    }
-
-    // 3-4. collection short name, collection name
-    for (const model::Collection* col : game.collectionsModel()->entries()) {
-        const std::string k = resolve_system(col->shortName().toStdString(), col->name().toStdString());
-        if (!k.empty())
-            return k;
-    }
-    return std::string();
+    std::vector<std::pair<QString, QString>> collections;
+    for (const model::Collection* col : game.collectionsModel()->entries())
+        collections.emplace_back(col->shortName(), col->name());
+    return system_key_from_parts(game.extraMap(), fi, collections);
 }
 
 } // namespace ponia

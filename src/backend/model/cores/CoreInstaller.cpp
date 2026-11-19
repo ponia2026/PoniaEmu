@@ -72,6 +72,9 @@ QString download_url(const ponia::CoreInfo& ci)
     // The buildbot calls the full MAME core "mame" on Linux (it is "mamearcade" on Android).
     if (name == QLatin1String("mamearcade"))
         name = QStringLiteral("mame");
+    // Likewise the Nintendo 64 core has no separate GLES build there; its single build is named without the suffix.
+    if (name == QLatin1String("mupen64plus_next_gles3"))
+        name = QStringLiteral("mupen64plus_next");
 #endif
     const QString arch = QSysInfo::buildCpuArchitecture();
     const QString base = QStringLiteral("https://buildbot.libretro.com/nightly/");

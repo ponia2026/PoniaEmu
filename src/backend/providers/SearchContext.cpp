@@ -22,6 +22,8 @@
 #include "model/gaming/Collection.h"
 #include "model/gaming/Game.h"
 #include "model/gaming/GameFile.h"
+#include "model/cores/GameSystem.h"
+#include "ponia_cores.h"
 #include "utils/DiskCachedNAM.h"
 #include "utils/PathTools.h"
 #include "utils/StdHelpers.h"
@@ -195,6 +197,30 @@ void SearchContext::finalize_cleanup_games()
         m_game_entries.erase(game_ptr);
         delete game_ptr;
     }
+
+    // Hide the systems that cannot run on this build (see the exclusion list in ponia_cores.h): their games are dropped here,
+    // the collections that become empty are removed by the cleanup below. Games with their own launch command are kept.
+    HashMap<model::Game*, std::vector<std::pair<QString, QString>>> collections_of;
+    for (const auto& pair : m_collection_games) {
+        for (model::Game* const game_ptr : pair.second)
+            collections_of[game_ptr].emplace_back(pair.first->shortName(), pair.first->name());
+    }
+    std::vector<model::Game*> hidden_games;
+    for (const auto& pair : m_game_entries) {
+        model::Game* const game_ptr = pair.first;
+        if (!game_ptr->launchCmd().isEmpty())
+            continue;
+        const QFileInfo file = pair.second.empty() ? QFileInfo() : pair.second.front()->fileinfo();
+        const std::string key = ponia::system_key_from_parts(game_ptr->extraMap(), file, collections_of[game_ptr]);
+        if (!key.empty() && ponia::system_hidden(key))
+            hidden_games.push_back(game_ptr);
+    }
+    for (model::Game* const game_ptr : hidden_games) {
+        m_game_entries.erase(game_ptr);
+        delete game_ptr;
+    }
+    if (!hidden_games.empty())
+        Log::info(LOGMSG("%1 games hidden: their system is not available on this build").arg(hidden_games.size()));
 
     // Remove entryless games
     for (auto& pair : m_collection_games) {
