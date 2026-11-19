@@ -71,6 +71,11 @@ jobs:
           SDKM="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKM" --licenses >/dev/null || true
           "$SDKM" "ndk;$NDK_VERSION" "platforms;android-33" "build-tools;33.0.2"
+          # The runner image ships other platforms (some with odd names like "android-34-ext10") and build-tools.
+          # androiddeployqt picks the newest one and chokes on them, so keep only the versions we use.
+          sudo find "$ANDROID_SDK_ROOT/platforms" -mindepth 1 -maxdepth 1 ! -name android-33 -exec rm -rf {} +
+          sudo find "$ANDROID_SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 ! -name 33.0.2 -exec rm -rf {} +
+          ls "$ANDROID_SDK_ROOT/platforms" "$ANDROID_SDK_ROOT/build-tools"
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
 
