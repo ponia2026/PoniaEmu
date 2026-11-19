@@ -21,9 +21,12 @@
 #include "backend/platform/TerminalKbd.h"
 
 #include <QCommandLineParser>
+#include <QDir>
 #include <QFileInfo>
+#include <QFontDatabase>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QStandardPaths>
 #include <QSettings>
 #include <QtPlugin>
 
@@ -244,6 +247,18 @@ int main(int argc, char *argv[])
     app.setOrganizationName(QStringLiteral("poniaemu"));
     app.setOrganizationDomain(QStringLiteral("ponia-frontend.org"));
     app.setWindowIcon(QIcon(QStringLiteral(":/icon.png")));
+
+#ifndef Q_OS_ANDROID
+    // The menus use system fonts, and a minimal system may have no CJK font at all (language names showed as boxes).
+    // Register the fonts that ship with the bundled theme; Qt then also uses them as fallback for missing glyphs.
+    const QStringList font_dirs = QStandardPaths::locateAll(QStandardPaths::AppDataLocation,
+        QStringLiteral("themes/macaron/assets/fonts"), QStandardPaths::LocateDirectory);
+    for (const QString& font_dir : font_dirs) {
+        const QFileInfoList fonts = QDir(font_dir).entryInfoList({ QStringLiteral("*.ttf"), QStringLiteral("*.otf") }, QDir::Files);
+        for (const QFileInfo& font : fonts)
+            QFontDatabase::addApplicationFont(font.absoluteFilePath());
+    }
+#endif
 
     if (!request_runtime_permissions())
         return 1;

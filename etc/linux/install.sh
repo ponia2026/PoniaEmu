@@ -87,7 +87,7 @@ if [ "${NO_DEPS:-0}" != 1 ]; then
         PKGS=""
         for p in libsdl2-2.0-0 \
                  libqt6core6 libqt6gui6 libqt6network6 libqt6qml6 libqt6quick6 libqt6core5compat6 \
-                 libqt6sql6 libqt6sql6-sqlite libqt6svg6 qt6-qpa-plugins qt6-wayland libxcb-cursor0 \
+                 libqt6sql6 libqt6sql6-sqlite libqt6svg6 qt6-svg-plugins qt6-image-formats-plugins qt6-qpa-plugins qt6-wayland libxcb-cursor0 \
                  qml6-module-qtqml qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
                  qml6-module-qtquick-window qml6-module-qtquick-templates qml6-module-qtquick-timeline \
                  qml6-module-qtqml-workerscript qml6-module-qtqml-models qml6-module-qt-labs-qmlmodels \

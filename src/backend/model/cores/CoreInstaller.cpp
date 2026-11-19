@@ -49,6 +49,7 @@ QStringList search_dirs()
     if (!env.isEmpty())
         dirs << QString::fromLocal8Bit(env);
 #ifndef Q_OS_ANDROID
+    dirs << app + QStringLiteral("/../lib/poniaemu/cores");
     dirs << QStringLiteral("/usr/lib/poniaemu/cores") << QStringLiteral("/usr/lib/libretro");
 #endif
     return dirs;
@@ -66,7 +67,12 @@ bool core_installed(const std::string& id)
 
 QString download_url(const ponia::CoreInfo& ci)
 {
-    const QString name = QString::fromLatin1(ci.dl_id ? ci.dl_id : ci.id);
+    QString name = QString::fromLatin1(ci.dl_id ? ci.dl_id : ci.id);
+#ifndef Q_OS_ANDROID
+    // The buildbot calls the full MAME core "mame" on Linux (it is "mamearcade" on Android).
+    if (name == QLatin1String("mamearcade"))
+        name = QStringLiteral("mame");
+#endif
     const QString arch = QSysInfo::buildCpuArchitecture();
     const QString base = QStringLiteral("https://buildbot.libretro.com/nightly/");
 #ifdef Q_OS_ANDROID
