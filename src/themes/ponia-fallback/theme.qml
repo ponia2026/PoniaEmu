@@ -1,4 +1,4 @@
-// PoniaFE 内置兜底主题：没有任何主题可用时显示说明，避免界面空白
+// PoniaEmu built-in fallback theme: shows a hint instead of an empty screen when no theme is available
 import QtQuick 2.0
 
 FocusScope {
@@ -14,7 +14,7 @@ FocusScope {
             anchors.horizontalCenter: parent.horizontalCenter
             color: "white"
             font.pixelSize: parent.parent.height * 0.06
-            text: "PoniaFE"
+            text: "PoniaEmu"
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter

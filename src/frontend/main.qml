@@ -25,7 +25,7 @@ Window {
     visible: true
     width: 1280
     height: 720
-    title: "PoniaFE"
+    title: "PoniaEmu"
     color: "#000"
 
     visibility: Internal.settings.fullscreen
