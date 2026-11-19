@@ -199,7 +199,8 @@ void SearchContext::finalize_cleanup_games()
     }
 
     // Hide the systems that cannot run on this build (see the exclusion list in ponia_cores.h): their games are dropped here,
-    // the collections that become empty are removed by the cleanup below. Games with their own launch command are kept.
+    // the collections that become empty are removed by the cleanup below. Games with their own launch command are kept
+    // (so a Port is only shown when it has one).
     HashMap<model::Game*, std::vector<std::pair<QString, QString>>> collections_of;
     for (const auto& pair : m_collection_games) {
         for (model::Game* const game_ptr : pair.second)
@@ -212,7 +213,9 @@ void SearchContext::finalize_cleanup_games()
             continue;
         const QFileInfo file = pair.second.empty() ? QFileInfo() : pair.second.front()->fileinfo();
         const std::string key = ponia::system_key_from_parts(game_ptr->extraMap(), file, collections_of[game_ptr]);
-        if (!key.empty() && ponia::system_hidden(key))
+        // A Port has no core: without a launch command of its own there is nothing to start, so it is not shown either
+        // (a collection whose games are all hidden disappears).
+        if (!key.empty() && (key == "ports" || ponia::system_hidden(key)))
             hidden_games.push_back(game_ptr);
     }
     for (model::Game* const game_ptr : hidden_games) {

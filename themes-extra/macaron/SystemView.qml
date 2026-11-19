@@ -19,7 +19,7 @@ Item {
     property string allText: ""
     property string favText: ""
     property string fontRound: "Varela Round"
-    property string fontUi: "Noto Sans SC"
+    property string fontUi: "Noto Sans CJK TC"
     function hasCjk(t) { return /[⺀-鿿぀-ヿ가-힯＀-￯]/.test(t || ""); }
 
     readonly property int n: items.length
@@ -105,14 +105,6 @@ Item {
                 source: card.desc ? "assets/glow/" + card.desc.icon + ".png" : ""
                 opacity: 0.35 * (0.4 + card.foc * 0.6)
                 smooth: true
-            }
-            // shadow (very light: in the design draft the card almost floats on the floor)
-            Repeater {
-                model: 3
-                Rectangle {
-                    x: -index * 4; y: 12 + index * 3; width: card.width + index * 8; height: card.height + index * 3
-                    radius: 36 + index * 4; color: Qt.rgba(0.24, 0.22, 0.2, (0.035 - index * 0.009) * (0.4 + card.foc * 0.6))
-                }
             }
             // mirror-glass card (symmetric rounded corners)
             GlassCard { anchors.fill: parent; radius: 36; tint: card.accent; strength: 0.8 + 0.2 * card.foc }

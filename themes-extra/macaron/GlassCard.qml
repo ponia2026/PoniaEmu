@@ -12,6 +12,13 @@ Item {
 
     readonly property color tintC: Qt.color(tint)
 
+    // The five translucent layers never change while the card is shown, and drawing them again on every frame is too much for a
+    // small GPU (a Mali-G31 needed about 100 ms per frame for the system page). So they are drawn once into a texture.
+    // The stage is drawn at twice its design size, so the texture is made at twice the item size to stay sharp.
+    layer.enabled: true
+    layer.smooth: true
+    layer.textureSize: Qt.size(Math.max(1, Math.ceil(width * 2)), Math.max(1, Math.ceil(height * 2)))
+
     // 1) glass body: bright at the top, most transparent in the middle, a bit brighter again at the bottom edge (like the reflection on the thick edge of glass)
     Rectangle {
         anchors.fill: parent

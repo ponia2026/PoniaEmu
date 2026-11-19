@@ -40,15 +40,11 @@ FocusScope {
     property int favInSys: 0           // number of favourites in the current system (for the count box of the system page)
     property int gamesInSys: 0
 
-    // ---- fonts: Noto Sans TC for the top/bottom white bars and the list, Varela Round for the middle area ----
-    FontLoader { id: fontTcR; source: "assets/fonts/NotoSansTC-Regular.ttf" }
-    FontLoader { id: fontTcB; source: "assets/fonts/NotoSansTC-Bold.ttf" }
-    FontLoader { id: fontScR; source: "assets/fonts/NotoSansSC-Regular.ttf" }
-    FontLoader { id: fontScB; source: "assets/fonts/NotoSansSC-Bold.ttf" }
+    // ---- fonts: Noto Sans CJK (Regular + Bold, Traditional/Simplified Chinese and Japanese) for the bars and the list, Varela Round for the middle area ----
+    FontLoader { id: fontCjkR; source: "assets/fonts/NotoSansCJK-Regular.otf" }
+    FontLoader { id: fontCjkB; source: "assets/fonts/NotoSansCJK-Bold.otf" }
     FontLoader { id: fontRound; source: "assets/fonts/VarelaRound-Regular.ttf" }
-    // Among the translation files only Simplified Chinese translates this string to "CJK:SC", which tells us that the interface is currently Simplified
-    readonly property bool useSC: (qsTr("CJK:TC") + api.tr) === "CJK:SC"
-    readonly property string uiFamily: useSC ? fontScR.name : fontTcR.name
+    readonly property string uiFamily: fontCjkR.name
 
     // ---- texts (system names are not translated; the rest goes through translation) ----
     readonly property string tBrowse: (qsTr("Browse") + api.tr)

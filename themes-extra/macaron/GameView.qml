@@ -21,7 +21,7 @@ Item {
     property int totalCount: 0
     property int favCount: 0
     property int allCount: 0
-    property string fontUi: "Noto Sans TC"
+    property string fontUi: "Noto Sans CJK TC"
     property string fontRound: "Varela Round"
     function hasCjk(t) { return /[⺀-鿿぀-ヿ가-힯＀-￯]/.test(t || ""); }
 

@@ -6,7 +6,7 @@ import QtQuick 2.15
 
 Row {
     id: area
-    property string fontUi: "Noto Sans SC"
+    property string fontUi: "Noto Sans CJK TC"
     property color ink: "#4A4A52"
     spacing: 12
     layoutDirection: Qt.LeftToRight

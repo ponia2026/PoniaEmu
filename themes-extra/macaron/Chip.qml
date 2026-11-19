@@ -7,7 +7,7 @@ Rectangle {
     id: chip
     property string text: ""
     property color ink: "#8A2F33"
-    property string fontUi: "Noto Sans SC"
+    property string fontUi: "Noto Sans CJK TC"
     height: 26; radius: 13
     width: row.width + 22
     color: Qt.rgba(1, 1, 1, 0.92)

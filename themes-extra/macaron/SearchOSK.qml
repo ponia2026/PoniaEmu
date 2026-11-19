@@ -14,7 +14,7 @@ Item {
     property string hintText: ""
     property color ink: "#8A2F33"
     property color accent: "#EE8D87"
-    property string fontUi: "Noto Sans TC"
+    property string fontUi: "Noto Sans CJK TC"
     property string okText: "OK"
     property string clearText: "Clear"
     property string spaceText: "Space"

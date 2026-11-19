@@ -73,6 +73,9 @@ Rectangle {
             anchors.rightMargin: parent.width * (1.0 - root.progress)
 
             SequentialAnimation on animatedWidth {
+                // Only run while the splash screen is shown: an endless animation keeps Qt redrawing the whole window
+                // at the display rate even after the splash is hidden, which keeps a small GPU at full speed.
+                running: root.visible
                 loops: Animation.Infinite
                 PropertyAnimation { duration: 500; to: vpx(68) }
                 PropertyAnimation { duration: 0; to: 0 }

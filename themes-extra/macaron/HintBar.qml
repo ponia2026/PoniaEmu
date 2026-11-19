@@ -7,7 +7,7 @@ import QtQuick 2.15
 Rectangle {
     id: bar
     property var hints: []            // [{ icon: "dpad_lr", label: "..." }, ...]
-    property string fontUi: "Noto Sans TC"
+    property string fontUi: "Noto Sans CJK TC"
 
     height: 38
     radius: 20
