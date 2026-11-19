@@ -75,14 +75,23 @@ say "PoniaEmu ($VERSION) for $ARCH -> $PREFIX"
 # ---- runtime packages ------------------------------------------------------------------------
 if [ "${NO_DEPS:-0}" != 1 ]; then
     if command -v apt-get >/dev/null 2>&1; then
-        # Only ask for packages this distribution actually has.
+        # Newer Ubuntu releases rename some library packages with a "t64" suffix (libqt6core6 -> libqt6core6t64),
+        # so for every name try the plain one first and then the t64 one; skip what this distribution does not have.
+        pick_pkg() {
+            for c in "$1" "$1t64"; do
+                if apt-cache policy "$c" 2>/dev/null | grep -q "Candidate: [^(]"; then printf '%s' "$c"; return 0; fi
+            done
+            return 1
+        }
         PKGS=""
-        for p in libsdl2-2.0-0 libqt6svg6 qt6-qpa-plugins qt6-wayland \
-                 qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+        for p in libsdl2-2.0-0 \
+                 libqt6core6 libqt6gui6 libqt6network6 libqt6qml6 libqt6quick6 libqt6core5compat6 \
+                 libqt6sql6 libqt6sql6-sqlite libqt6svg6 qt6-qpa-plugins qt6-wayland \
+                 qml6-module-qtqml qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
                  qml6-module-qtquick-window qml6-module-qtquick-templates qml6-module-qtquick-timeline \
                  qml6-module-qtqml-workerscript qml6-module-qtqml-models qml6-module-qt-labs-qmlmodels \
                  qml6-module-qtmultimedia qml6-module-qt5compat-graphicaleffects; do
-            if apt-cache show "$p" >/dev/null 2>&1; then PKGS="$PKGS $p"; else say "note: package $p is not available here, skipping."; fi
+            if q="$(pick_pkg "$p")"; then PKGS="$PKGS $q"; else say "note: package $p is not available here, skipping."; fi
         done
         run $SUDO apt-get install -y $PKGS
     else
@@ -116,13 +125,25 @@ $SUDO tar -xzf "$TMP/$FILE" -C "$PREFIX"
 $SUDO mkdir -p "$(dirname "$MANIFEST")"
 $SUDO cp "$TMP/manifest.txt" "$MANIFEST"
 
-# Package 1.0.0 shipped the launcher entry, icons and metadata under the id org.ponia.PoniaFE; remove them when upgrading.
+# Earlier test builds shipped the launcher entry, icons and metadata under the id org.ponia.PoniaFE; remove them when upgrading.
 for f in "$PREFIX/share/applications/org.ponia.PoniaFE.desktop" "$PREFIX/share/metainfo/org.ponia.PoniaFE.metainfo.xml" \
          "$PREFIX"/share/icons/hicolor/*/apps/org.ponia.PoniaFE.png; do
     [ -e "$f" ] && $SUDO rm -f "$f"
 done
 
 command -v update-desktop-database >/dev/null 2>&1 && $SUDO update-desktop-database "$PREFIX/share/applications" >/dev/null 2>&1 || true
+# Make sure every shared library is there; a missing one would only show up as an error when starting the program.
+if command -v ldd >/dev/null 2>&1; then
+    MISSING="$(ldd "$PREFIX/bin/poniaemu" 2>/dev/null | grep "not found" | awk '{print $1}' | tr '\n' ' ')"
+    if [ -n "$MISSING" ]; then
+        say ""
+        say "PoniaEmu is installed, but these libraries are missing, so it cannot start yet:"
+        say "  $MISSING"
+        say "Install the packages that provide them (apt-cache search can help, for example: apt-cache search libqt6sql6) and run poniaemu again."
+        exit 1
+    fi
+fi
+
 say ""
 say "Installed. Start it with:  poniaemu"
 say "Games and BIOS files are not included, see the README for where to put them."
