@@ -34,7 +34,7 @@ jobs:
         include:
           - abi: arm64-v8a
             qt_arch: android_arm64_v8a
-            suffix: ''
+            suffix: _v8a
           - abi: armeabi-v7a
             qt_arch: android_armv7
             suffix: _v7a
@@ -79,17 +79,31 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
 
+      # Release signing key. Set these repository secrets to use your own key:
+      #   ANDROID_KEYSTORE_B64      the .keystore file, base64 encoded
+      #   ANDROID_KEYSTORE_PASSWORD the keystore (and key) password
+      #   ANDROID_KEY_ALIAS         the key alias
+      # Without them the build still works, but with a throw-away key (APKs from different runs cannot update each other).
       - name: Signing key
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           mkdir -p ~/.android
-          if [ -n "$KS_B64" ]; then
-            echo "$KS_B64" | base64 -d > ~/.android/debug.keystore
+          # Gradle's debug build always wants this one; the final APK is re-signed below anyway.
+          keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -keypass android \
+            -alias androiddebugkey -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASSWORD" ] && [ -n "$KS_ALIAS" ]; then
+            echo "$KS_B64" | base64 -d > "$HOME/release.keystore"
+            echo "SIGN_KS=$HOME/release.keystore" >> "$GITHUB_ENV"
+            echo "SIGN_ALIAS=$KS_ALIAS" >> "$GITHUB_ENV"
+            echo "SIGN_PASS=$KS_PASSWORD" >> "$GITHUB_ENV"
+            echo "Using the release signing key."
           else
-            echo "No ANDROID_KEYSTORE_B64 secret: generating a throw-away key (APKs from different runs will not upgrade over each other)."
-            keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -keypass android \
-              -alias androiddebugkey -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+            echo "::warning::Release signing secrets are not set: signing with a throw-away key."
+            echo "SIGN_KS=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
+            echo "SIGN_PASS=android" >> "$GITHUB_ENV"
           fi
 
       - name: Cache SDL2
@@ -152,10 +166,12 @@ jobs:
           mkdir -p dist
           NAME="$(sh etc/android/apk-name.sh build '${{ matrix.suffix }}')"
           # repack-apk.sh changes directory, so it needs absolute paths.
-          sh etc/android/repack-apk.sh \
+          KS_PASS="$SIGN_PASS" KEY_ALIAS="${SIGN_ALIAS:-}" sh etc/android/repack-apk.sh \
             "$PWD/build/src/app/android-build/build/outputs/apk/debug/android-build-debug.apk" \
-            "$PWD/dist/$NAME"
+            "$PWD/dist/$NAME" "$SIGN_KS"
           ls -l dist
+          # Show which key signed it (the certificate fingerprint is public information).
+          "$ANDROID_HOME/build-tools/33.0.2/apksigner" verify --print-certs "dist/$NAME" | grep -i "SHA-256"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -192,10 +208,10 @@ jobs:
 
           | File | For |
           | --- | --- |
+          | \`*_v8a.apk\` | 64-bit Android (arm64-v8a), Android 6.0 or newer |
           | \`*_v7a.apk\` | 32-bit Android (armeabi-v7a), Android 6.0 or newer |
-          | the other \`.apk\` | 64-bit Android (arm64-v8a), Android 6.0 or newer |
 
-          The APKs are signed with a development key, not a Play Store key. Check \`SHA256SUMS.txt\` after downloading.
+          The APKs are not signed for the Play Store. Check \`SHA256SUMS.txt\` after downloading.
           Games and BIOS files are not included. See the README for supported systems and setup.
           EOF
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
