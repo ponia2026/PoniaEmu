@@ -27,10 +27,180 @@
 #include <QSettings>
 #include <QtPlugin>
 
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+#include <QDir>
+#include <QFile>
+#include <QHash>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QStandardPaths>
+#include <QTemporaryFile>
+#include <QVector>
+#include <memory>
+#endif
+
 #ifdef Q_OS_ANDROID
 #include "backend/platform/AndroidHelpers.h"
 #endif
 
+
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+namespace {
+
+struct DrmConnector {
+    QString type;       // kernel connector type, for example "HDMI-A"
+    QString qt_name;    // name that Qt's eglfs KMS code gives the output, for example "HDMI1"
+    bool connected = false;
+    QStringList modes;  // "1920x1080", ... in the order the kernel lists them
+};
+
+// Qt names an eglfs output after the connector type and its id, and shortens some of the types.
+QString qt_output_prefix(const QString& kernel_type)
+{
+    static const QHash<QString, QString> names = {
+        { QStringLiteral("HDMI-A"), QStringLiteral("HDMI") },
+        { QStringLiteral("HDMI-B"), QStringLiteral("HDMI") },
+        { QStringLiteral("DP"), QStringLiteral("DP") },
+        { QStringLiteral("eDP"), QStringLiteral("eDP") },
+        { QStringLiteral("DVI-I"), QStringLiteral("DVI") },
+        { QStringLiteral("DVI-D"), QStringLiteral("DVI") },
+        { QStringLiteral("DVI-A"), QStringLiteral("DVI") },
+        { QStringLiteral("VGA"), QStringLiteral("VGA") },
+        { QStringLiteral("LVDS"), QStringLiteral("LVDS") },
+        { QStringLiteral("DSI"), QStringLiteral("DSI") },
+        { QStringLiteral("Composite"), QStringLiteral("Composite") },
+        { QStringLiteral("TV"), QStringLiteral("TV") },
+        { QStringLiteral("S-Video"), QStringLiteral("TV") },
+    };
+    return names.value(kernel_type);
+}
+
+QString read_first_line(const QString& path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return {};
+    return QString::fromUtf8(file.readAll()).trimmed();
+}
+
+// The connectors of the first graphics card that has any (eglfs uses that card too).
+QVector<DrmConnector> list_drm_connectors()
+{
+    QVector<DrmConnector> result;
+    const QDir drm(QStringLiteral("/sys/class/drm"));
+    const QStringList entries = drm.entryList({ QStringLiteral("card*-*") }, QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+
+    QString card;
+    for (const QString& entry : entries) {
+        const int dash = entry.indexOf(QLatin1Char('-'));
+        const QString this_card = entry.left(dash);
+        if (card.isEmpty())
+            card = this_card;
+        if (this_card != card)
+            continue;
+
+        const QString rest = entry.mid(dash + 1);                // for example "HDMI-A-1"
+        const int last_dash = rest.lastIndexOf(QLatin1Char('-'));
+        if (last_dash < 0)
+            continue;
+
+        DrmConnector connector;
+        connector.type = rest.left(last_dash);
+        const QString prefix = qt_output_prefix(connector.type);
+        if (prefix.isEmpty())
+            continue;
+        connector.qt_name = prefix + rest.mid(last_dash + 1);
+        connector.connected = read_first_line(drm.filePath(entry + QStringLiteral("/status"))) == QLatin1String("connected");
+
+        // sysfs files report a bogus size, so atEnd() never becomes true: read everything at once.
+        QFile modes(drm.filePath(entry + QStringLiteral("/modes")));
+        if (modes.open(QIODevice::ReadOnly | QIODevice::Text))
+            connector.modes = QString::fromUtf8(modes.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        result.append(connector);
+    }
+    return result;
+}
+
+// Some boards expose an unused analog output (composite/TV) next to HDMI. Qt's eglfs backend hands the only
+// display controller to the first output it finds, which leaves HDMI without one: the program runs, but the
+// screen stays black. Write a KMS configuration that drives the connected digital output and switches the others off.
+// A user supplied QT_QPA_EGLFS_KMS_CONFIG or ~/.config/poniaemu/kms.json takes precedence.
+std::unique_ptr<QTemporaryFile> prepare_eglfs_output()
+{
+    if (!qEnvironmentVariableIsEmpty("QT_QPA_EGLFS_KMS_CONFIG"))
+        return nullptr;
+
+    const QString user_config = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+                              + QStringLiteral("/poniaemu/kms.json");
+    if (QFileInfo::exists(user_config)) {
+        qputenv("QT_QPA_EGLFS_KMS_CONFIG", user_config.toUtf8());
+        return nullptr;
+    }
+
+    const QVector<DrmConnector> connectors = list_drm_connectors();
+    static const QStringList priority = {
+        QStringLiteral("HDMI-A"), QStringLiteral("HDMI-B"), QStringLiteral("DP"), QStringLiteral("DVI-I"),
+        QStringLiteral("DVI-D"), QStringLiteral("DVI-A"), QStringLiteral("VGA"), QStringLiteral("eDP"),
+        QStringLiteral("DSI"), QStringLiteral("LVDS"),
+    };
+    const DrmConnector* chosen = nullptr;
+    for (const QString& type : priority) {
+        for (const DrmConnector& connector : connectors) {
+            if (connector.connected && connector.type == type) {
+                chosen = &connector;
+                break;
+            }
+        }
+        if (chosen)
+            break;
+    }
+    if (!chosen)
+        return nullptr;
+
+    // Low-end GPUs cannot drive a 4K desktop-sized scene smoothly, so use 1080p when the display offers it.
+    // PONIAEMU_KMS_MODE overrides it, for example "3840x2160" or "preferred".
+    QString mode = qEnvironmentVariable("PONIAEMU_KMS_MODE");
+    if (mode.isEmpty())
+        mode = chosen->modes.contains(QLatin1String("1920x1080")) ? QStringLiteral("1920x1080") : QStringLiteral("preferred");
+
+    QJsonArray outputs;
+    for (const DrmConnector& connector : connectors) {
+        QJsonObject output;
+        output[QStringLiteral("name")] = connector.qt_name;
+        output[QStringLiteral("mode")] = (&connector == chosen) ? mode : QStringLiteral("off");
+        outputs.append(output);
+    }
+    QJsonObject root;
+    root[QStringLiteral("hwcursor")] = false;
+    root[QStringLiteral("outputs")] = outputs;
+
+    auto file = std::make_unique<QTemporaryFile>(QDir::tempPath() + QStringLiteral("/poniaemu-kms-XXXXXX.json"));
+    if (!file->open())
+        return nullptr;
+    file->write(QJsonDocument(root).toJson());
+    file->flush();
+    qputenv("QT_QPA_EGLFS_KMS_CONFIG", file->fileName().toUtf8());
+    return file;
+}
+
+// Without a desktop session Qt would default to the xcb plugin and fail ("could not connect to display").
+// Use the framebuffer/KMS output then, so that starting the program from a console works on a TV box.
+std::unique_ptr<QTemporaryFile> prepare_linux_display()
+{
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")
+        && qEnvironmentVariableIsEmpty("DISPLAY")
+        && qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) {
+        qputenv("QT_QPA_PLATFORM", "eglfs");
+    }
+
+    if (qgetenv("QT_QPA_PLATFORM").startsWith("eglfs"))
+        return prepare_eglfs_output();
+    return nullptr;
+}
+
+} // namespace
+#endif
 
 #ifdef WITH_APNG_SUPPORT
 Q_IMPORT_PLUGIN(ApngImagePlugin)
@@ -55,6 +225,12 @@ int main(int argc, char *argv[])
     // Qt disables XMLHttpRequest GET on local files unless this is set.
     if (qEnvironmentVariableIsEmpty("QML_XHR_ALLOW_FILE_READ"))
         qputenv("QML_XHR_ALLOW_FILE_READ", "1");
+
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+    // Must run before the QGuiApplication is created; the file has to stay around until the program exits.
+    const auto linux_display_config = prepare_linux_display();
+    Q_UNUSED(linux_display_config)
+#endif
 
     TerminalKbd::on_startup();
 
