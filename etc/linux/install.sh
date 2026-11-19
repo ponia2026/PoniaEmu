@@ -15,6 +15,7 @@
 #   PREFIX=/opt/x    install somewhere else (default /usr/local)
 #   NO_DEPS=1        do not touch the system packages
 #   DRY_RUN=1        only print what would be done
+#   AUTOMOUNT=1|0    install (1) or skip (0) the disk automount, see automount.sh; default: only when no desktop runs
 # Remove it again with:  sh install.sh --uninstall
 set -eu
 
@@ -130,6 +131,17 @@ for f in "$PREFIX/share/applications/org.ponia.PoniaFE.desktop" "$PREFIX/share/m
          "$PREFIX"/share/icons/hicolor/*/apps/org.ponia.PoniaFE.png; do
     [ -e "$f" ] && $SUDO rm -f "$f"
 done
+
+# A box without a desktop has nothing that mounts USB/SATA/NVMe disks, so install the automount there
+# (it never touches the disk that holds the system). A desktop mounts disks by itself, so it is skipped then.
+AM="${AUTOMOUNT:-auto}"
+if [ "$AM" = auto ]; then
+    if command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet display-manager.service 2>/dev/null; then AM=1; else AM=0; fi
+fi
+if [ "$AM" = 1 ]; then
+    say "Installing the automount for external disks (remove it with: sh automount.sh --uninstall) ..."
+    curl -fsSL "https://raw.githubusercontent.com/$REPO/qt6/etc/linux/automount.sh" | $SUDO sh || say "note: the automount could not be installed, skipping."
+fi
 
 command -v update-desktop-database >/dev/null 2>&1 && $SUDO update-desktop-database "$PREFIX/share/applications" >/dev/null 2>&1 || true
 # Make sure every shared library is there; a missing one would only show up as an error when starting the program.
