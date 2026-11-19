@@ -109,7 +109,7 @@ jobs:
 
       - name: Get the bundled Libretro cores
         run: |
-          ABI="${{ matrix.abi }}" etc/android/fetch-bundled-cores.sh "src/app/platform/android/libs/${{ matrix.abi }}"
+          ABI="${{ matrix.abi }}" sh etc/android/fetch-bundled-cores.sh "src/app/platform/android/libs/${{ matrix.abi }}"
 
       - name: Build the fake-08 core (PICO-8)
         run: |
