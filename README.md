@@ -1,88 +1,170 @@
-![screenshot](etc/promo/screenshot_alpha10.jpg)
+[Deutsch](README.de.md) · [English](README.md) · [Español](README.es.md) · [Français](README.fr.md) · [日本語](README.ja.md) · [Português](README.pt.md) · [Русский](README.ru.md) · [繁體中文](README.zh-TW.md) · [简体中文](README.zh-CN.md)
 
+# PoniaEmu
 
-# Pegasus Frontend
+**A game launcher with its own built-in emulator player. No RetroArch required.**
 
-Pegasus is a graphical frontend for browsing your game library and launching all kinds of emulators from the same place. It's focusing on customizability, cross platform support (including embedded) and high performance.
+![PoniaEmu system view](etc/promo/screenshot_systemview_en.jpg)
 
-[![CircleCI status](https://circleci.com/gh/mmatyas/pegasus-frontend.svg?style=shield)](https://circleci.com/gh/mmatyas/pegasus-frontend)
-[![AppVeyor status](https://ci.appveyor.com/api/projects/status/github/mmatyas/pegasus-frontend?svg=true&branch=master)](https://ci.appveyor.com/project/mmatyas/pegasus-frontend)
-[![GPLv3 license](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE.md)
+PoniaEmu is a modified version of [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend), ported to Qt 6 and
+combined with **PoniaPlay**, a small Libretro player written from scratch. Pegasus provides the game library and the
+interface (**PoniaFE**); PoniaPlay loads Libretro cores (`.so` files) directly. Together they form a single, standalone
+application that can play more than a dozen kinds of retro systems without installing RetroArch or any other emulator app.
 
-- [**Main website**](http://pegasus-frontend.org)
-- [Documentation](https://pegasus-frontend.org/docs/)
-- [Latest releases](https://github.com/mmatyas/pegasus-frontend/releases/)
-- [Development thread](https://retropie.org.uk/forum/topic/9598/announcing-pegasus-frontend)
-- [Discord](https://discord.gg/KTtzP6y)
+- **PoniaFE**: the frontend. Pegasus Frontend ported to Qt 6, with the Ponia branding, the Macaron theme and a nine-language interface.
+- **PoniaPlay**: the built-in player. A Libretro host (`src/libretro-host`) that runs the cores as shared libraries,
+  with OpenGL ES rendering, zero-copy video output, gamepad hotkeys, save states and ZIP/7z ROM support.
+- **Cores**: ordinary Libretro `.so` files. Small, permissively licensed cores are bundled; the rest are downloaded
+  the first time you launch a game that needs them.
 
+The interface is available in nine languages: English, 简体中文, 繁體中文, Español, Português, Русский, 日本語, Français and Deutsch.
 
-## Features
+## Supported systems
 
-**Open source and cross platform:** runs on Windows, Linux, Mac, Android, all Raspberries, Odroids and possibly on other devices too. Hardware accelerated and works with or without X11.
+| System | Core |
+| --- | --- |
+| Nintendo Entertainment System / Famicom | FCEUmm |
+| Game Boy / Game Boy Color | Gambatte |
+| Game Boy Advance | mGBA |
+| Nintendo DS | melonDS |
+| Super Nintendo / Super Famicom | Snes9x |
+| Nintendo 64 | Mupen64Plus-Next |
+| Nintendo GameCube (64-bit only) | Dolphin |
+| Sega Genesis / Mega Drive, Master System | Genesis Plus GX |
+| Sega Saturn | YabaSanshiro |
+| Sega Dreamcast | Flycast |
+| NEC PC Engine / TurboGrafx-16 | Mednafen PCE Fast |
+| Sony PlayStation | PCSX ReARMed |
+| Sony PSP | PPSSPP |
+| Neo Geo, CPS-1, CPS-2 and other FBNeo arcade sets | FBNeo |
+| Arcade (MAME) | MAME, MAME 2003-Plus |
+| Atari 2600 | Stella |
+| Atari 5200 | a5200 |
+| Atari 7800 | ProSystem |
+| PICO-8 | fake-08, retro8 |
+| Apple II | AppleWin |
+| DOS | DOSBox Pure |
 
-**Full control over the UI:** themes can completely change everything that is on the screen. Add or remove UI elements, menu screens, animations, whatever. Want to make it look like Kodi? Steam? Any other launcher? No problem. You can even [run your custom shader code](etc/promo/shader_demo.jpg).
+Notes:
 
-**ES2 backward compatibility:** Pegasus can use EmulationStation's gamelist files, no need to invent a new set of tools.
+- **No games or BIOS files are included.** Bring your own legally obtained ROMs. Some systems (for example Sega Saturn)
+  need a BIOS file, which goes in the `BIOS` folder next to your ROMs.
+- Cores with non-commercial licenses (Snes9x, Genesis Plus GX, FBNeo, MAME 2003-Plus) are never bundled in the package.
+  PoniaEmu offers to download them on first use.
+- Hotkeys, button layout and the pause menu behave the same on every system, because they are handled by PoniaPlay.
 
-**Features you'd expect:** Gamepad support and config. Multiple aspect ratio support. Portable mode support. Live theme reload. A clock in the corner.
+## Supported platforms
 
+| Platform | Architectures | Notes |
+| --- | --- | --- |
+| Android | 64-bit (`arm64-v8a`), 32-bit (`armeabi-v7a`) | Android 6.0 (API 23) or newer. Works with a touch screen, a gamepad or a TV remote. |
+| Linux | 64-bit, 32-bit | Runs on X11, Wayland or directly on the framebuffer (KMS/DRM). The `poniaplay` executable is installed next to the frontend. |
 
-## Installation and setup
+The GameCube core is not available on 32-bit ARM, because Dolphin has no ARM32 JIT.
 
-You can find downloads and platform-specific notes on the [project's website](http://pegasus-frontend.org), under *Downloads*. Documentation and configuration guides can be found [HERE](http://pegasus-frontend.org/docs/), in particular you might want to take a look on the [Getting started](http://pegasus-frontend.org/docs/user-guide/getting-started/) page.
+## Building
 
+PoniaEmu uses CMake. You need a C++17 compiler, CMake 3.16 or newer, Ninja, and Qt **6.4 or newer** (Qt Quick, Qt Quick
+Controls 2, Qt 5 Compatibility, Qt Multimedia, Qt Shader Tools) plus SDL2. Qt 6.4.2 is the version used for development.
 
-## Building from source
-
-**Build dependencies**
-
-- C++11 compatible compiler
-- Qt 5.15.0 or later, with the following modules:
-    - QML and QtQuick2
-    - Multimedia
-    - SVG
-    - SQL (SQLite v3)
-- Either SDL (2.0.4 or later) or Qt Gamepad
-
-For more information, please see the detailed [build guide](http://pegasus-frontend.org/docs/dev/build).
-
-**Downloading the source**
-
-The project uses Git submodules. If you've cloned the repository recursively, they are automatically cloned as well. In case you forgot to do that, you can do it manually, like this:
+### Linux
 
 ```sh
-# call this after every repo update
-git submodule update --init
+git clone https://github.com/ponia2026/PoniaEmu.git
+cd PoniaEmu
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+sudo cmake --install build
 ```
 
-**Building**
+Useful options:
 
-You can use any Qt-compatible IDEs, eg. Qt Creator to build the project, or you can manually invoke:
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `PEGASUS_USE_SDL2_GAMEPAD` | `ON` | Use SDL2 for gamepad input. |
+| `PEGASUS_USE_SDL2_POWER` | `ON` (`OFF` on Android) | Use SDL2 for battery information. |
+| `PEGASUS_ENABLE_LTO` | `ON` | Link-time optimization (slower to build, faster to run). |
+| `PEGASUS_STATIC_CXX` | `OFF` | Link the C++ runtime statically. |
+
+For a 32-bit Linux build, configure the same way with a 32-bit toolchain (or on a 32-bit system).
+
+### Android
+
+You need the Qt 6.4.2 Android kit for each ABI you want (installable with `aqtinstall`), Android NDK r25.1.8937393,
+Android SDK platform 33 with build-tools 33.0.2, JDK 17 and SDL2 (2.30.x) built for the same ABI.
+The Qt desktop build of the same version must be installed on the build machine (it provides `moc` and `rcc`).
 
 ```sh
-mkdir build && cd build
-qmake ..  # qmake [params] [project path], see below
-make
-make check    # optional, to run tests
-make install  # optional
+export JAVA_HOME=/path/to/jdk17 ANDROID_HOME=/path/to/android-sdk
+QT=/path/to/Qt/6.4.2/android_arm64_v8a      # use android_armv7 for 32-bit
+
+# 1. Get the bundled Libretro cores (use ABI=armeabi-v7a for 32-bit and pass the matching output folder)
+etc/android/fetch-bundled-cores.sh
+
+# 2. Configure and build the APK
+cmake -S . -B build-android -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=$QT/lib/cmake/Qt6/qt.toolchain.cmake \
+  -DQT_HOST_PATH=/usr \
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-23 \
+  -DSDL2_DIR=/path/to/sdl2-arm64/lib/cmake/SDL2 \
+  -DCMAKE_FIND_ROOT_PATH=/path/to/sdl2-arm64
+cmake --build build-android --target poniafe_make_apk
+
+# 3. Optional: shrink, re-align and re-sign the APK
+etc/android/repack-apk.sh <in.apk> <out.apk>
 ```
 
-**For more details**, including possible build parameters, see the [build documentation](http://pegasus-frontend.org/docs/dev/build).
+`etc/android/apk-name.sh` prints the file name for a build, in the form `PoniaEmu_v<version>-<date>(<commit>).apk`.
+The PICO-8 core `fake-08` has no prebuilt Android binary; the comments in `fetch-bundled-cores.sh` explain how to build it.
 
+## License and copyright
 
+Copyright (C) 2026 Equuleus Works.
 
-## License
+- **PoniaFE** (the frontend) is a derivative work of Pegasus Frontend, Copyright (C) 2017-2020 Mátyás Mustoha, and is
+  licensed under the **GNU General Public License v3.0 or later**, with the supplementary terms in [`LICENSE.md`](LICENSE.md).
+  Copyright notices of the original source files are kept as the license requires.
+- **PoniaPlay** (`src/libretro-host`) was written from scratch and is licensed under **GPL-2.0-or-later**, so it can load
+  both GPLv2-only and GPLv3 Libretro cores. It talks to the frontend only through command-line arguments and Android
+  Intents. `libretro.h` is MIT-licensed, Copyright (C) 2010-2020 The RetroArch team.
+- **Libretro cores** are separate works under their own licenses. Only cores whose licenses allow commercial
+  distribution are bundled.
+- The name "Ponia" and the Ponia logo are the property of Equuleus Works. See the trademark terms in `LICENSE.md`.
+- All other trademarks, product names and logos are the property of their respective owners and are used for
+  identification only. This project is independent and is not affiliated with or endorsed by the Pegasus Frontend authors.
 
-Pegasus Frontend is available under GPLv3 license. Some included assets, such as product logos and symbols may not be available for commercial usage and/or may require additional permissions from their respective owners for certain legal uses. Furthermore, trademark usage may be limited as per §7 of the GPLv3 license. You can find the details in the [LICENSE](LICENSE.md) file.
+The full list of third-party components and licenses is in [`NOTICE.md`](NOTICE.md).
 
-All trademarks, service marks, trade names, trade dress, product names and logos are property of their respective owners. All company, product and service names used in this product are for identification purposes only. Use of these names, logos, and brands does not imply endorsement.
+## Acknowledgements
 
+PoniaEmu stands on the shoulders of many open-source projects. Thank you to:
 
-## Donate
-
-Pegasus is a free and open source project, and will remain as one. If you would like to provide financial support, you can use the following links. This is completely optional, but every contribution is much appreciated!
-
-[![PayPal](https://www.paypalobjects.com/webstatic/en_US/i/buttons/PP_logo_h_100x26.png)](https://paypal.me/MatyasMustoha)
-[![Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/mmatyas/donate)
-[![Patreon](etc/promo/donate-patreon.png)](https://www.patreon.com/user?u=14424256)
-[![Buy Me a Coffee](etc/promo/donate-coffee.png)](https://www.buymeacoffee.com/mmatyas)
+- [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend) by Mátyás Mustoha and contributors, the foundation of the frontend.
+- [Libretro](https://github.com/libretro) and [RetroArch](https://github.com/libretro/RetroArch) for the Libretro API
+  and the core ecosystem.
+- The core authors and maintainers:
+  [FCEUmm](https://github.com/libretro/libretro-fceumm),
+  [Gambatte](https://github.com/libretro/gambatte-libretro),
+  [mGBA](https://github.com/mgba-emu/mgba),
+  [melonDS](https://github.com/libretro/melonDS),
+  [Snes9x](https://github.com/snes9xgit/snes9x),
+  [Mupen64Plus-Next](https://github.com/libretro/mupen64plus-libretro-nx),
+  [Dolphin](https://github.com/libretro/dolphin),
+  [Genesis Plus GX](https://github.com/libretro/Genesis-Plus-GX),
+  [YabaSanshiro](https://github.com/libretro/yabause),
+  [Flycast](https://github.com/flyinghead/flycast),
+  [Mednafen PCE Fast](https://github.com/libretro/beetle-pce-fast-libretro),
+  [PCSX ReARMed](https://github.com/libretro/pcsx_rearmed),
+  [PPSSPP](https://github.com/hrydgard/ppsspp),
+  [FBNeo](https://github.com/libretro/FBNeo),
+  [MAME](https://github.com/libretro/mame) and [MAME 2003-Plus](https://github.com/libretro/mame2003-plus-libretro),
+  [Stella](https://github.com/stella-emu/stella),
+  [a5200](https://github.com/libretro/a5200),
+  [ProSystem](https://github.com/libretro/prosystem-libretro),
+  [fake-08](https://github.com/jtothebell/fake-08),
+  [retro8](https://github.com/libretro/retro8),
+  [AppleWin](https://github.com/libretro/libretro-applewin) and
+  [DOSBox Pure](https://github.com/schellingb/dosbox-pure).
+- [Qt](https://www.qt.io/) and [SDL2](https://www.libsdl.org/).
+- The [Noto Sans](https://github.com/notofonts) and [Varela Round](https://fonts.google.com/specimen/Varela+Round) fonts
+  (SIL Open Font License 1.1) and the Roboto fonts (Apache License 2.0).
