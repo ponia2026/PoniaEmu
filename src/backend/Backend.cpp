@@ -147,7 +147,7 @@ void on_app_close(AppCloseType type)
         default: break;
     }
 
-    Log::info(LOGMSG("Closing PoniaFE, goodbye!"));
+    Log::info(LOGMSG("Closing PoniaEmu, goodbye!"));
     Log::close();
 
     QCoreApplication::quit();
@@ -335,7 +335,7 @@ void Backend::onProcessLaunched()
 {
     int delay_sec = AppSettings::general.hide_delay_after_launch;
     if (delay_sec != 0 && platform_requires_hiding()) {
-        Log::info(LOGMSG("This platform allows only one program on the screen, hiding PoniaFE immediately"));
+        Log::info(LOGMSG("This platform allows only one program on the screen, hiding PoniaEmu immediately"));
         delay_sec = 0;
     }
 
