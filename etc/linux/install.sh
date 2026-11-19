@@ -116,6 +116,12 @@ $SUDO tar -xzf "$TMP/$FILE" -C "$PREFIX"
 $SUDO mkdir -p "$(dirname "$MANIFEST")"
 $SUDO cp "$TMP/manifest.txt" "$MANIFEST"
 
+# Package 1.0.0 shipped the launcher entry, icons and metadata under the id org.ponia.PoniaFE; remove them when upgrading.
+for f in "$PREFIX/share/applications/org.ponia.PoniaFE.desktop" "$PREFIX/share/metainfo/org.ponia.PoniaFE.metainfo.xml" \
+         "$PREFIX"/share/icons/hicolor/*/apps/org.ponia.PoniaFE.png; do
+    [ -e "$f" ] && $SUDO rm -f "$f"
+done
+
 command -v update-desktop-database >/dev/null 2>&1 && $SUDO update-desktop-database "$PREFIX/share/applications" >/dev/null 2>&1 || true
 say ""
 say "Installed. Start it with:  poniaemu"

@@ -140,21 +140,21 @@ endif()
 
 if(PEGASUS_ON_X11)
     if(INSTALL_ICONDIR)
-        install(FILES platform/linux/icons/16/org.ponia.PoniaFE.png DESTINATION "${INSTALL_ICONDIR}/16x16/apps/")
-        install(FILES platform/linux/icons/32/org.ponia.PoniaFE.png DESTINATION "${INSTALL_ICONDIR}/32x32/apps/")
-        install(FILES platform/linux/icons/48/org.ponia.PoniaFE.png DESTINATION "${INSTALL_ICONDIR}/48x48/apps/")
-        install(FILES platform/linux/icons/64/org.ponia.PoniaFE.png DESTINATION "${INSTALL_ICONDIR}/64x64/apps/")
-        install(FILES platform/linux/icons/128/org.ponia.PoniaFE.png DESTINATION "${INSTALL_ICONDIR}/128x128/apps/")
+        install(FILES platform/linux/icons/16/org.ponia.PoniaEmu.png DESTINATION "${INSTALL_ICONDIR}/16x16/apps/")
+        install(FILES platform/linux/icons/32/org.ponia.PoniaEmu.png DESTINATION "${INSTALL_ICONDIR}/32x32/apps/")
+        install(FILES platform/linux/icons/48/org.ponia.PoniaEmu.png DESTINATION "${INSTALL_ICONDIR}/48x48/apps/")
+        install(FILES platform/linux/icons/64/org.ponia.PoniaEmu.png DESTINATION "${INSTALL_ICONDIR}/64x64/apps/")
+        install(FILES platform/linux/icons/128/org.ponia.PoniaEmu.png DESTINATION "${INSTALL_ICONDIR}/128x128/apps/")
     endif()
     if(INSTALL_DESKTOPDIR AND INSTALL_BINDIR)
         configure_file(
-            platform/linux/org.ponia.PoniaFE.desktop.in
-            org.ponia.PoniaFE.desktop
+            platform/linux/org.ponia.PoniaEmu.desktop.in
+            org.ponia.PoniaEmu.desktop
         )
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.ponia.PoniaFE.desktop" DESTINATION "${INSTALL_DESKTOPDIR}")
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.ponia.PoniaEmu.desktop" DESTINATION "${INSTALL_DESKTOPDIR}")
     endif()
     if(INSTALL_APPSTREAMDIR)
-        install(FILES platform/linux/org.ponia.PoniaFE.metainfo.xml DESTINATION "${INSTALL_APPSTREAMDIR}")
+        install(FILES platform/linux/org.ponia.PoniaEmu.metainfo.xml DESTINATION "${INSTALL_APPSTREAMDIR}")
     endif()
 endif()
 
