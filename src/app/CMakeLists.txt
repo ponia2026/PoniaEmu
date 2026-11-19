@@ -34,11 +34,11 @@ add_library(pegasus-locales "${PEGASUS_LOCALE_SRC}")
 
 # Main runtime
 
-qt_add_executable(poniafe MANUAL_FINALIZATION WIN32 main.cpp)
-target_include_directories(poniafe PRIVATE
+qt_add_executable(poniaemu MANUAL_FINALIZATION WIN32 main.cpp)
+target_include_directories(poniaemu PRIVATE
     "${PROJECT_SOURCE_DIR}/src"
 )
-target_link_libraries(poniafe PUBLIC
+target_link_libraries(poniaemu PUBLIC
     Qt::Core
     pegasus-assets
     pegasus-backend
@@ -46,23 +46,17 @@ target_link_libraries(poniafe PUBLIC
     pegasus-qml
 )
 if(COMMAND qt_import_qml_plugins)
-    qt_import_qml_plugins(poniafe)
+    qt_import_qml_plugins(poniaemu)
 endif()
 
 include(PegasusCommonProps)
-pegasus_add_common_props_optimized(poniafe)
+pegasus_add_common_props_optimized(poniaemu)
 
 # TODO: Workaround for asset differences for now
-target_compile_definitions(poniafe PRIVATE PEGASUS_USING_CMAKE)
-
-if(NOT ANDROID)
-    # The product is called PoniaEmu, so the desktop executable is `poniaemu`.
-    # The CMake target keeps its old name, which the Android packaging still uses.
-    set_target_properties(poniafe PROPERTIES OUTPUT_NAME poniaemu)
-endif()
+target_compile_definitions(poniaemu PRIVATE PEGASUS_USING_CMAKE)
 
 if(PEGASUS_ENABLE_APNG)
-    target_compile_definitions(poniafe PUBLIC WITH_APNG_SUPPORT)
+    target_compile_definitions(poniaemu PUBLIC WITH_APNG_SUPPORT)
 endif()
 
 if(ANDROID)
@@ -84,9 +78,9 @@ endif()
 
 if(ANDROID)
     # Qt 6's androiddeployqt brings its own Gradle template; we only supply the Manifest, the Java sources and the resources
-    set_target_properties(poniafe PROPERTIES
+    set_target_properties(poniaemu PROPERTIES
         QT_ANDROID_PACKAGE_SOURCE_DIR "${PEGASUS_ANDROID_PKG}"
-        QT_ANDROID_VERSION_NAME "${PONIAFE_VERSION}"
+        QT_ANDROID_VERSION_NAME "${PONIA_VERSION}"
         QT_ANDROID_VERSION_CODE ${PONIA_ANDROID_VERSION_CODE}
         QT_ANDROID_MIN_SDK_VERSION 23
         QT_ANDROID_TARGET_SDK_VERSION 33
@@ -94,16 +88,16 @@ if(ANDROID)
     # Let androiddeployqt scan the frontend QML and the Qt QML modules used by the bundled themes, and put them into the APK
     # Native library of the built-in Libretro player (loaded by PlayerActivity)
     if(PEGASUS_BUILD_LIBRETRO_HOST)
-        add_dependencies(poniafe ponia_player)
-        set_property(TARGET poniafe APPEND PROPERTY QT_ANDROID_EXTRA_LIBS "${CMAKE_BINARY_DIR}/src/libretro-host/libponia_player.so")
+        add_dependencies(poniaemu ponia_player)
+        set_property(TARGET poniaemu APPEND PROPERTY QT_ANDROID_EXTRA_LIBS "${CMAKE_BINARY_DIR}/src/libretro-host/libponia_player.so")
     endif()
-    set_property(TARGET poniafe APPEND PROPERTY QT_QML_ROOT_PATH
+    set_property(TARGET poniaemu APPEND PROPERTY QT_QML_ROOT_PATH
         "${PROJECT_SOURCE_DIR}/src/frontend"
         "${PROJECT_SOURCE_DIR}/src/themes"
         "${PROJECT_SOURCE_DIR}/themes-extra")
 endif()
 
-qt_finalize_executable(poniafe)
+qt_finalize_executable(poniaemu)
 
 
 # Install
@@ -129,7 +123,7 @@ pegasus_set_installdir(INSTALL_APPSTREAMDIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/m
 pegasus_set_installdir(INSTALL_THEMESDIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/poniafe/themes")
 
 if(INSTALL_BINDIR)
-    install(TARGETS poniafe RUNTIME DESTINATION "${INSTALL_BINDIR}" LIBRARY DESTINATION "${INSTALL_BINDIR}")
+    install(TARGETS poniaemu RUNTIME DESTINATION "${INSTALL_BINDIR}" LIBRARY DESTINATION "${INSTALL_BINDIR}")
 endif()
 
 if(INSTALL_DOCDIR)

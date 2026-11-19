@@ -125,7 +125,7 @@ cmake -S . -B build-android -G Ninja \
   -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-23 \
   -DSDL2_DIR=/path/to/sdl2-arm64/lib/cmake/SDL2 \
   -DCMAKE_FIND_ROOT_PATH=/path/to/sdl2-arm64
-cmake --build build-android --target poniafe_make_apk
+cmake --build build-android --target poniaemu_make_apk
 
 # 3. Facultatif : réduire, réaligner et re-signer l'APK
 etc/android/repack-apk.sh <in.apk> <out.apk>

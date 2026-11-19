@@ -93,7 +93,7 @@ public class MainActivity extends org.qtproject.qt.android.bindings.QtActivity {
             m_hid_manager = org.libsdl.app.HIDDeviceManager.acquire(this);
             m_sdl_ready = true;
         } catch (Throwable t) {
-            android.util.Log.w("PoniaFE", "SDL init failed: " + t);
+            android.util.Log.w("PoniaEmu", "SDL init failed: " + t);
         }
         super.onCreate(savedInstanceState);
         if (m_sdl_ready)
@@ -177,7 +177,7 @@ public class MainActivity extends org.qtproject.qt.android.bindings.QtActivity {
             android.app.AlarmManager am = (android.app.AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
             am.set(android.app.AlarmManager.RTC, System.currentTimeMillis() + 300, pi);
         } catch (Exception e) {
-            android.util.Log.w("PoniaFE", "restartApp failed: " + e);
+            android.util.Log.w("PoniaEmu", "restartApp failed: " + e);
         }
         android.os.Process.killProcess(android.os.Process.myPid());
     }
@@ -208,7 +208,7 @@ public class MainActivity extends org.qtproject.qt.android.bindings.QtActivity {
                 out.close();
             }
         } catch (Exception e) {
-            android.util.Log.w("PoniaFE", "installBundledThemes failed: " + e);
+            android.util.Log.w("PoniaEmu", "installBundledThemes failed: " + e);
         }
     }
 

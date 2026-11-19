@@ -9,9 +9,6 @@
 set(PONIA_PRODUCT_NAME "PoniaEmu")
 set(PONIA_VERSION "1.0.0")
 
-# Old variable name (still used by src/app/CMakeLists.txt)
-set(PONIAFE_VERSION "${PONIA_VERSION}")
-
 # Regenerate ponia_version.h on every build, not only when CMake configures:
 # (it is only overwritten when the date, the commit or the build stamp changed, so only the few files that include it are rebuilt.)
 set(PONIA_VERSION_HEADER_DIR "${CMAKE_BINARY_DIR}/generated")

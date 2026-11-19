@@ -159,7 +159,7 @@ jobs:
       - name: Build
         run: |
           cmake --build build --target ponia_player
-          cmake --build build --target poniafe_make_apk
+          cmake --build build --target poniaemu_make_apk
 
       # Guard: an APK without the player library installs fine but cannot start any game.
       - name: Check that the player library is in the APK

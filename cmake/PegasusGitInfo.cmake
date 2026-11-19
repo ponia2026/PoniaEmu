@@ -10,7 +10,7 @@ execute_process(COMMAND
 )
 
 # PoniaEmu's own version starts at 1.0.0 and is shown as "1.0.0+commit", with -dirty added when there are uncommitted changes
-# PONIAFE_VERSION now comes from cmake/PoniaVersion.cmake (the product name and the version are written in one place only)
+# PONIA_VERSION comes from cmake/PoniaVersion.cmake (the product name and the version are written in one place only)
 execute_process(COMMAND
     git
     --git-dir "${PROJECT_SOURCE_DIR}/.git"
@@ -18,18 +18,18 @@ execute_process(COMMAND
     rev-parse
     --short=8 HEAD
     OUTPUT_STRIP_TRAILING_WHITESPACE
-    OUTPUT_VARIABLE PONIAFE_GIT_SHORT
+    OUTPUT_VARIABLE PONIA_GIT_SHORT
 )
-string(FIND "${PEGASUS_GIT_DESCRIBE}" "-dirty" PONIAFE_DIRTY_POS)
-if(PONIAFE_DIRTY_POS GREATER -1)
-    set(PONIAFE_DIRTY_SUFFIX "-dirty")
+string(FIND "${PEGASUS_GIT_DESCRIBE}" "-dirty" PONIA_DIRTY_POS)
+if(PONIA_DIRTY_POS GREATER -1)
+    set(PONIA_DIRTY_SUFFIX "-dirty")
 else()
-    set(PONIAFE_DIRTY_SUFFIX "")
+    set(PONIA_DIRTY_SUFFIX "")
 endif()
-if(PONIAFE_GIT_SHORT)
-    set(PEGASUS_GIT_REVISION "${PONIAFE_VERSION}+${PONIAFE_GIT_SHORT}${PONIAFE_DIRTY_SUFFIX}")
+if(PONIA_GIT_SHORT)
+    set(PEGASUS_GIT_REVISION "${PONIA_VERSION}+${PONIA_GIT_SHORT}${PONIA_DIRTY_SUFFIX}")
 else()
-    set(PEGASUS_GIT_REVISION "${PONIAFE_VERSION}")
+    set(PEGASUS_GIT_REVISION "${PONIA_VERSION}")
 endif()
 
 execute_process(COMMAND

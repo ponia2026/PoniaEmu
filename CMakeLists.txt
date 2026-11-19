@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(poniafe
-    DESCRIPTION "Cross platform, customizable graphical frontend for launching games"
+project(poniaemu
+    DESCRIPTION "Game launcher with a built-in Libretro player"
     HOMEPAGE_URL "https://ponia-frontend.org/"
     LANGUAGES CXX
 )

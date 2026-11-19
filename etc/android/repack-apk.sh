@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Equuleus Works
 #
-# Repack an APK produced by `ninja poniafe_make_apk`: drop the dead space left behind by Gradle's
+# Repack an APK produced by `ninja poniaemu_make_apk`: drop the dead space left behind by Gradle's
 # incremental packaging (a 74 MB file can hold only ~26 MB of real data), re-align and re-sign it.
 #
 # Usage: repack-apk.sh <in.apk> <out.apk> [keystore] [build-tools dir]
