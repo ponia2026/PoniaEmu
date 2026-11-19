@@ -6,14 +6,9 @@ build*/
 
 # except these
 !.gitignore
-!.qmake.conf
-!.appveyor.yml
-!.circleci/
-!.travis/
 !.github/
 
 # ignore IDE project files
-*.pro.user
 *.kdev4
 *.workspace
 
@@ -22,6 +17,6 @@ build*/
 *.jsc
 *.autosave
 
-# 内建核心由 etc/android/fetch-bundled-cores.sh 下载，不进版控
+# Bundled cores are downloaded by etc/android/fetch-bundled-cores.sh and are not tracked
 src/app/platform/android/libs/
 src/app/platform/android/assets/packs/
