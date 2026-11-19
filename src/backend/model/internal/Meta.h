@@ -30,10 +30,10 @@ class Meta : public QObject {
 
     Q_PROPERTY(QString gitRevision MEMBER m_git_revision CONSTANT)
     Q_PROPERTY(QString gitDate MEMBER m_git_date CONSTANT)
-    Q_PROPERTY(QString productName MEMBER m_product_name CONSTANT)   // PoniaEmu（不翻译）
+    Q_PROPERTY(QString productName MEMBER m_product_name CONSTANT)   // PoniaEmu (not translated)
     Q_PROPERTY(QString version MEMBER m_version CONSTANT)            // 1.0.0
-    Q_PROPERTY(QString buildDate MEMBER m_build_date CONSTANT)       // 编译日期 YYYYMMDD
-    Q_PROPERTY(QString commit MEMBER m_commit CONSTANT)              // 提交号（有未提交改动时带 -dirty）
+    Q_PROPERTY(QString buildDate MEMBER m_build_date CONSTANT)       // build date YYYYMMDD
+    Q_PROPERTY(QString commit MEMBER m_commit CONSTANT)              // commit (with -dirty when there are uncommitted changes)
     Q_PROPERTY(QString logFilePath MEMBER m_log_path CONSTANT)
 
     Q_PROPERTY(bool allowReboot MEMBER m_enable_menu_reboot CONSTANT)

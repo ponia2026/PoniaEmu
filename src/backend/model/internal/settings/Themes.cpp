@@ -176,7 +176,7 @@ void Themes::select_preferred_theme()
     if (select_theme(AppSettings::general.theme))
         return;
 
-    // B. 优先使用 Macaron（PoniaFE 的默认主题）
+    // B. Prefer Macaron (the default theme of PoniaEmu)
     for (size_t idx = 0; idx < m_themes.size(); idx++) {
         const QString& dir = m_themes.at(idx).root_dir;
         if (dir.endsWith(QLatin1String("/macaron/"))) {
@@ -185,11 +185,11 @@ void Themes::select_preferred_theme()
         }
     }
 
-    // C. 退回内置的兜底主题
+    // C. Fall back to the built-in fallback theme
     if (select_theme(AppSettings::general.DEFAULT_THEME))
         return;
 
-    // 理论上不会发生：兜底主题编进了程序里
+    // Should not happen in theory: the fallback theme is compiled into the program
     m_current_idx = 0;
 }
 
@@ -267,7 +267,7 @@ void Themes::setCurrentIndex(int idx_int)
     print_change();
 
 #ifdef Q_OS_ANDROID
-    // 先保存再重启：不能让 QML 销毁旧主题（见 MainActivity.restartApp）
+    // Save first, then restart: QML must not destroy the old theme (see MainActivity.restartApp)
     AppSettings::general.theme = currentQmlDir();
     AppSettings::save_config();
     android::restart_app();

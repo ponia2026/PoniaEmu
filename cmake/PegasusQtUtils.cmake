@@ -9,7 +9,7 @@ macro(pegasus_require_qt)
 
     # Qt 6 compiles QML through qmlcachegen, there is no separate QuickCompiler package
     list(REMOVE_ITEM QTREQ_COMPONENTS QuickCompiler)
-    # QmlImportScanner 只在静态链接时需要（Android 用动态 Qt，安卓套件里也没有它）
+    # QmlImportScanner is only needed for static linking (Android uses a dynamic Qt, and the Android kit does not contain it)
     if(ANDROID)
         list(REMOVE_ITEM QTREQ_COMPONENTS QmlImportScanner)
     endif()

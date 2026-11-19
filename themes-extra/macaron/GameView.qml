@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 游戏列表页（v0.2 设计）：静态底图 + 单一张大圆角磨砂白卡；卡内左＝机种标题 + 纯文字清单，右＝影片 + 封面 + 简介。
-// 左右屏缘各露出「上一个／下一个」的空白占位框（不画真封面，省 GPU）。影片框一律 4:3，宽屏机种在框内上下留黑。
+// Game list page (v0.2 design): static background + a single large rounded frosted-white card; inside the card, left = system title + plain-text list, right = video + cover + description.
+// A blank placeholder frame for "previous / next" shows at each side edge (no real cover is drawn, to save GPU). The video frame is always 4:3; widescreen systems get black bars above and below inside the frame.
 import QtQuick 2.15
 
 Item {
@@ -9,15 +9,15 @@ Item {
     width: 960
     height: 540
 
-    property var cur: null              // 机种描述（颜色、图标、名称、letterbox）
-    property int count: 0               // 目前列表行数（已套用搜寻过滤）
+    property var cur: null              // system description (colour, icon, name, letterbox)
+    property int count: 0               // current number of list rows (search filter applied)
     property var gameAt: function (i) { return null; }
     property int gameIndex: 0
     property string allText: ""
-    property string catText: ""         // 已翻译的类别名（家用机…）
+    property string catText: ""         // translated category name (Home console ...)
     property string emptyText: ""
-    property bool mediaPaused: false     // 启动游戏中
-    property string queryText: ""       // 非空时显示搜寻条件
+    property bool mediaPaused: false     // a game is launching
+    property string queryText: ""       // the search condition is shown when not empty
     property int totalCount: 0
     property int favCount: 0
     property int allCount: 0
@@ -33,7 +33,7 @@ Item {
     readonly property color textSub: "#7A7F87"
     readonly property int rowH: 35
 
-    // ---- 底图 ----
+    // ---- background ----
     Image {
         anchors.fill: parent
         source: "assets/images/ponia_bg_light.png"
@@ -41,8 +41,8 @@ Item {
         asynchronous: true
     }
 
-    // ---- 左右屏缘：上一个／下一个游戏的空白占位框 ----
-    // 占位框要看得出来：玻璃卡 + 垫一层白、加一点阴影
+    // ---- left/right edges: blank placeholder frames of the previous / next game ----
+    // The placeholder must be visible: glass card + a white underlay + a little shadow
     Item {
         x: -39; y: 158; width: 100; height: 247; visible: gv.count > 1
         Rectangle { x: 2; y: 6; width: parent.width; height: parent.height; radius: 30; color: Qt.rgba(0.24, 0.2, 0.16, 0.05) }
@@ -56,16 +56,16 @@ Item {
         GlassCard { anchors.fill: parent; radius: 30; tint: gv.accent }
     }
 
-    // ---- 单一大卡 ----
+    // ---- the single large card ----
     Item {
         id: card
         x: 77; y: 52; width: 806; height: 432
 
-        // 玻璃底板只在上下缩小（上缘 +14、下缘 -11），里面内容的位置不动
+        // The glass base only shrinks at the top and bottom (top +14, bottom -11); the content inside keeps its position
         Item {
             id: plate
             x: 0; y: 14; width: card.width; height: card.height - 25
-            Repeater {   // 软阴影
+            Repeater {   // soft shadow
                 model: 4
                 Rectangle {
                     x: -index * 6; y: 12 + index * 3; width: plate.width + index * 12; height: plate.height + index * 4
@@ -75,7 +75,7 @@ Item {
             GlassCard { anchors.fill: parent; radius: 32; tint: gv.accent }
         }
 
-        // ---- 标头：机种图标晶片 + 名称 + 两颗膠囊 ----
+        // ---- header: system icon chip + name + two capsules ----
         Rectangle {
             x: 24; y: 32; width: 76; height: 76; radius: 20
             color: Qt.rgba(Qt.color(gv.accent).r, Qt.color(gv.accent).g, Qt.color(gv.accent).b, 0.22)
@@ -123,14 +123,14 @@ Item {
             games: gv.totalCount; favs: gv.favCount; total: gv.allCount
             fontFamily: gv.fontRound; pixel: 13; ink: "#737A84"
         }
-        // 搜寻条件
+        // search condition
         Chip {
             visible: gv.queryText !== ""
             x: 24 + 290 - width; y: 100
             text: gv.queryText; ink: gv.ink; fontUi: gv.fontUi
         }
 
-        // ---- 左：纯文字游戏清单（选中＝淡机种色膠囊）----
+        // ---- left: plain-text game list (selected = capsule in a light system colour) ----
         Item {
             id: listBox
             x: 24; y: 120; width: 300; height: 280
@@ -161,7 +161,7 @@ Item {
                         anchors.right: parent.right; anchors.rightMargin: 16
                         visible: g ? g.favorite : false
                         text: "★"; font.family: gv.fontUi; font.pixelSize: 15
-                        color: "#FF4B4B"; opacity: 0.9   // Ponia 马头 logo 的红色
+                        color: "#FF4B4B"; opacity: 0.9   // the red of the Ponia horse-head logo
                     }
                 }
             }
@@ -181,7 +181,7 @@ Item {
             }
         }
 
-        // ---- 右上：影片（4:3）+ 封面 ----
+        // ---- top right: video (4:3) + cover ----
         Rectangle {
             x: 346; y: 32; width: 290; height: 218; radius: 18
             color: Qt.rgba(1, 1, 1, 0.55)
@@ -203,17 +203,17 @@ Item {
             visible: gv.count > 0 && cover.source.toString() !== ""
             Image {
                 id: cover
-                // 与影片（MediaPane 的 6px 内缩）同一个上缘；图片本身靠上对齐
+                // same top edge as the video (6px inset of MediaPane); the image itself is top-aligned
                 anchors.top: parent.top; anchors.topMargin: 6; anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width - 12; height: parent.height - 12
                 verticalAlignment: Image.AlignTop
                 source: gv.game && gv.game.assets.boxFront ? gv.game.assets.boxFront : ""
-                fillMode: Image.PreserveAspectFit      // 等比缩放，不拉伸
+                fillMode: Image.PreserveAspectFit      // scale proportionally, no stretching
                 asynchronous: true; mipmap: true
             }
         }
 
-        // ---- 右下：游戏名 + logo（右上角小尺寸）+ 简介（太长时自动慢速往下捲）----
+        // ---- bottom right: game name + logo (small, top right) + description (scrolls down slowly when too long) ----
         Item {
             id: info
             x: 346; y: 262; width: 436; height: 141
@@ -232,7 +232,7 @@ Item {
                 return parts.join("  ·  ");
             }
 
-            TextMetrics {   // 游戏名的自然宽度：logo 紧贴在名称右边，而不是推到最右
+            TextMetrics {   // natural width of the game name: the logo sits right next to the name instead of being pushed to the far right
                 id: ttlMetrics
                 font: ttl.font; text: ttl.text
             }
@@ -280,7 +280,7 @@ Item {
                     }
                     Component.onCompleted: rearm()
                 }
-                Rectangle {   // 细捲轴（提示还有内容；底部不再叠白色淡出）
+                Rectangle {   // thin scroll bar (hints that there is more content; no white fade at the bottom any more)
                     visible: bodyTxt.overflow > 0
                     x: parent.width - 4; width: 3; radius: 2
                     color: Qt.rgba(0.5, 0.5, 0.55, 0.5)

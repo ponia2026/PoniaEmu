@@ -23,7 +23,7 @@ cmake_policy(SET CMP0071 NEW)  # Enable processing Qt generated files
 
 
 option(PEGASUS_USE_SDL2_GAMEPAD "Use SDL2 for gamepad support" ON)
-# 安卓上 SDL 的电量查询依赖 SDLActivity 初始化，这里改用自带的 Java 实现（BatteryInfo）
+# On Android, SDL's battery query depends on SDLActivity being initialised, so the built-in Java implementation (BatteryInfo) is used instead
 if(ANDROID)
     set(PEGASUS_SDL2_POWER_DEFAULT OFF)
 else()

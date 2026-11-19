@@ -557,12 +557,12 @@ void Metadata::apply_entry(ParserState& ps, const metafile::Entry& entry, Search
 std::vector<FileFilter> Metadata::apply_metafile(const QString& metafile_path, SearchContext& sctx) const
 {
 #ifdef Q_OS_ANDROID
-    // Ports（掌机 Linux 的 PortMaster 套件）在 Android 上不能执行：整个资料夹不显示，等 Linux 版再开放
+    // Ports (the PortMaster suite of Linux handhelds) cannot be run on Android: the whole folder is hidden until the Linux version opens it up
     if (QFileInfo(metafile_path).dir().dirName().compare(QLatin1String("Ports"), Qt::CaseInsensitive) == 0)
         return {};
 #endif
 #if defined(Q_OS_ANDROID) && defined(__arm__) && !defined(__aarch64__)
-    // 32 位 ARM：GameCube 的 Dolphin 核心没有 ARM JIT（官方 2015 起放弃 ARMv7，buildbot 的 v7a 档只有快取解译器，慢到无法玩）→ NGC 整个资料夹不显示
+    // 32-bit ARM: the Dolphin GameCube core has no ARM JIT (officially dropped ARMv7 in 2015; the v7a build of the buildbot only has the cached interpreter, far too slow to play) -> the whole NGC folder is hidden
     {
         const QString dir_name = QFileInfo(metafile_path).dir().dirName();
         if (dir_name.compare(QLatin1String("NGC"), Qt::CaseInsensitive) == 0

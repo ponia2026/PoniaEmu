@@ -59,8 +59,8 @@ public class MainActivity extends org.qtproject.qt.android.bindings.QtActivity {
     private static Context m_app_context;
     private org.libsdl.app.HIDDeviceManager m_hid_manager;
 
-    // C++ 的「退出」：QCoreApplication::quit() 只会结束 Qt 事件循环，画面还留在前景。
-    // 这里把 Activity 关掉（并从最近任务移除），安卓就会回到桌面；Activity 销毁时一并结束进程。
+    // C++ "quit": QCoreApplication::quit() only ends the Qt event loop, the window stays in the foreground.
+    // Here the Activity is finished (and removed from the recent tasks), so Android goes back to the home screen; the process ends together with the Activity.
     public static void quitApp() {
         final Activity a = m_self;
         if (a == null)
@@ -84,12 +84,12 @@ public class MainActivity extends org.qtproject.qt.android.bindings.QtActivity {
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
         m_app_context = getApplicationContext();
-        // 必须在 Qt 的原生线程启动之前，让 SDL 的 Java 端就绪（手柄靠 SDL）
+        // The Java side of SDL must be ready before Qt's native threads start (gamepads rely on SDL)
         try {
             System.loadLibrary("SDL2");
             org.libsdl.app.SDL.setupJNI();
             org.libsdl.app.SDL.initialize();
-            // SDL 的 HIDAPI 层需要它先注册回调，否则 SDL_hid_init 会空指针崩溃
+            // SDL's HIDAPI layer needs its callback registered first, otherwise SDL_hid_init crashes with a null pointer
             m_hid_manager = org.libsdl.app.HIDDeviceManager.acquire(this);
             m_sdl_ready = true;
         } catch (Throwable t) {
@@ -108,13 +108,13 @@ public class MainActivity extends org.qtproject.qt.android.bindings.QtActivity {
             m_hid_manager = null;
         }
         super.onDestroy();
-        // 使用者选了「退出」：连进程一起结束，下次启动才是干净的
+        // The user chose "Exit": end the process too, so that the next start is clean
         if (closing)
             android.os.Process.killProcess(android.os.Process.myPid());
     }
 
-    // 只有真正的手柄/摇杆才交给 SDL；遥控器（只有方向键源）SDL 也会当成摇杆，
-    // 若被 SDL 吃掉，Qt 就收不到按键，界面无法操作
+    // Only real gamepads/joysticks are handed to SDL; SDL also treats a remote control (which only has a D-pad source) as a joystick,
+    // and if SDL swallows its keys, Qt never receives them and the interface cannot be operated
     private static boolean isRealGamepad(int deviceId) {
         android.view.InputDevice dev = android.view.InputDevice.getDevice(deviceId);
         if (dev == null)
@@ -165,8 +165,8 @@ public class MainActivity extends org.qtproject.qt.android.bindings.QtActivity {
     }
 
 
-    // Qt 6.4 安卓版：销毁带 QMediaPlayer 的 QML 项（如 Grid 主题的视频/音乐）会在 ~QAndroidMediaPlayer 里永久卡死，
-    // 所以切换主题时不销毁界面，直接重启整个 App（0.3 秒后由闹钟拉起，并立刻结束本进程）。
+    // Qt 6.4 on Android: destroying a QML item that holds a QMediaPlayer (for example the video/music of a Grid theme) hangs forever in ~QAndroidMediaPlayer,
+    // so the UI is not destroyed when the theme is switched; the whole app is restarted instead (relaunched by an alarm after 0.3 s, and this process ends at once).
     public static void restartApp() {
         try {
             Context c = m_app_context;
@@ -182,7 +182,7 @@ public class MainActivity extends org.qtproject.qt.android.bindings.QtActivity {
         android.os.Process.killProcess(android.os.Process.myPid());
     }
 
-    // 把 APK 里 assets/themes/<名字>/ 解包到 destThemesDir/<名字>/（marker 内容等于 version 就跳过）
+    // Unpack assets/themes/<name>/ of the APK to destThemesDir/<name>/ (skipped when the marker content equals version)
     public static void installBundledThemes(String destThemesDir, String versionIn) {
         String version = versionIn;
         try {
@@ -190,7 +190,7 @@ public class MainActivity extends org.qtproject.qt.android.bindings.QtActivity {
             String[] names = am.list("themes");
             if (names == null)
                 return;
-            // 标记里带上 APK 的更新时间：同一个 git 版本重新安装（主题内容变了）也会重新解包
+            // The marker also contains the update time of the APK: reinstalling the same git version (with changed theme content) unpacks again
             try {
                 version = version + "-" + m_app_context.getPackageManager()
                     .getPackageInfo(m_app_context.getPackageName(), 0).lastUpdateTime;

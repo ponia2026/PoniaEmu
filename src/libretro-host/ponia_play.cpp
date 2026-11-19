@@ -83,9 +83,9 @@ template<typename T> bool sym(T& fn, const char* name) {
 }
 
 #ifdef __ANDROID__
-// Android 9 的 bionic tmpfile() 不看 TMPDIR、固定写 /data/local/tmp（App 无权限）→ 回传 NULL，核心再 fwrite(NULL) 就 abort
-// （yabasanshiro 的 retro_serialize_size、AppleWin 都中）。核心载入后把它 GOT 里的 tmpfile 换成我们的版本：
-// 在存档目录建临时档、立刻 unlink（关档即消失，语义同 tmpfile）。
+// On Android 9, bionic's tmpfile() ignores TMPDIR and always writes to /data/local/tmp (the app has no permission) -> returns NULL, and a core that then fwrite(NULL)s aborts
+// (retro_serialize_size of yabasanshiro and AppleWin both hit this). After the core is loaded, its tmpfile entry in the GOT is replaced with our version:
+// create a temporary file in the save directory and unlink it at once (it disappears when closed, same semantics as tmpfile).
 std::string g_tmp_dir = ".";
 #endif
 bool g_tmp_patched = false;
@@ -108,7 +108,7 @@ int tmp_patch_cb(struct dl_phdr_info* info, size_t, void* data) {
     for (int i = 0; i < info->dlpi_phnum; ++i)
         if (info->dlpi_phdr[i].p_type == PT_DYNAMIC) dyn = (const ElfW(Dyn)*)(info->dlpi_addr + info->dlpi_phdr[i].p_vaddr);
     if (!dyn) return 1;
-    auto fix = [&](uintptr_t v) { return v >= info->dlpi_addr ? v : v + info->dlpi_addr; };   // 有的 linker 已重定位，有的没有
+    auto fix = [&](uintptr_t v) { return v >= info->dlpi_addr ? v : v + info->dlpi_addr; };   // some linkers have already relocated, some have not
     const ElfW(Sym)* symtab = nullptr; const char* strtab = nullptr;
     const ElfW(Rela)* jmprel = nullptr; size_t jmpsz = 0; const ElfW(Rela)* rela = nullptr; size_t relasz = 0;
     for (; dyn->d_tag != DT_NULL; ++dyn) switch (dyn->d_tag) {
@@ -229,7 +229,7 @@ struct Frontend {
     bool analog_used = false;          // the core reads RETRO_DEVICE_ANALOG: then the left stick is not also a D-pad
     unsigned latch = 0;          // RetroPad bits pressed since the last poll (a tap shorter than one poll interval must still reach the core)
     bool debug_input = false;    // --debug-input: log what SDL delivers and what the core asks for
-    bool no_ffrew = false;       // Dolphin: fast-forward / rewind disabled (freezes on S18)
+    bool no_ffrew = false;       // Dolphin: fast-forward / rewind disabled (freezes on some devices)
     bool no_serialize = false;   // core crashes in retro_serialize (tmpfile): no rewind / save states
 } F;
 
@@ -237,7 +237,7 @@ void log_cb(enum retro_log_level lvl, const char* fmt, ...) {
     static const char* n[] = {"DEBUG", "INFO", "WARN", "ERROR"};
     char msg[1024];
     va_list a; va_start(a, fmt); std::vsnprintf(msg, sizeof msg, fmt, a); va_end(a);
-    plog("[core %s] %s", n[lvl & 3], msg);   // 走 plog：Android 上才進得了 logcat
+    plog("[core %s] %s", n[lvl & 3], msg);   // go through plog: only then does it reach logcat on Android
 }
 
 std::string state_path() { return F.save_dir + "/" + F.base_name + ".state"; }
@@ -1244,8 +1244,8 @@ void write_shot() {
 
 
 // ---------- system -> core table ----------
-// 机种简称（与主题 systems.js 的 icon 键一致）-> 核心文件名。可被 ~/.config/poniafe/cores.ini（每行 "系统=核心.so"）覆盖。
-// Ports 另行处理。
+// System short name (matches the icon key of systems.js in the theme) -> core file name. Can be overridden by ~/.config/poniafe/cores.ini (one "system=core.so" per line).
+// Ports are handled separately.
 
 bool file_exists(const std::string& p) { struct stat st; return ::stat(p.c_str(), &st) == 0 && S_ISREG(st.st_mode); }
 
@@ -1259,13 +1259,13 @@ std::string exe_dir() {
 std::string find_core_file(const std::string& file, const std::vector<std::string>& cores_dirs, const std::string& system = "");
 
 std::string resolve_core(const std::string& system, const std::vector<std::string>& cores_dirs) {
-    const std::string sys_key = ponia::resolve_system(system);   // 别名（集合简称）-> 机种键；认不得就原样当键
+    const std::string sys_key = ponia::resolve_system(system);   // alias (collection short name) -> system key; an unknown one is used as the key as it is
     const std::string key = sys_key.empty() ? system : sys_key;
     std::string file;
     const std::string cid = ponia::core_id_for_system(key);
     if (!cid.empty()) file = ponia::core_file(cid);
     const char* home = std::getenv("HOME");
-    if (home) {   // 用户覆盖表
+    if (home) {   // user override table
         FILE* f = std::fopen((std::string(home) + "/.config/poniafe/cores.ini").c_str(), "r");
         if (f) {
             char line[512];
@@ -1295,7 +1295,7 @@ std::string find_core_file(const std::string& file, const std::vector<std::strin
     dirs.push_back("/usr/lib/libretro");
     for (auto& d : dirs) {
         if (file_exists(d + "/" + file)) return d + "/" + file;
-        if (file_exists(d + "/lib" + file)) return d + "/lib" + file;   // 安卓：APK 里的 .so 必须叫 lib*.so
+        if (file_exists(d + "/lib" + file)) return d + "/lib" + file;   // Android: a .so inside the APK must be named lib*.so
     }
     plog("poniaplay: core %s for system '%s' not found (searched %zu dirs)\n", file.c_str(), system.c_str(), dirs.size());
     return "";
@@ -1337,23 +1337,23 @@ int ponia_play(int argc, char** argv) {
     F.base_name = F.content_path.substr(sl == std::string::npos ? 0 : sl + 1);
     size_t dot = F.base_name.find_last_of('.'); if (dot != std::string::npos) F.base_name.resize(dot);
 
-    // Ponia.Roms/BIOS -> 核心的 system 目录；mame2003_plus 另需 BIOS 与游戏同目录，用暂存目录里的连结解决
+    // Ponia.Roms/BIOS -> the system directory of the core; mame2003_plus also needs the BIOS next to the game, which is solved with links in a staging directory
     {
         const std::string bios = ponia::find_bios_dir(F.content_path, bios_arg);
         if (!bios.empty()) {
             const int n = ponia::sync_bios(bios, F.system_dir);
             plog("poniaplay: BIOS folder %s -> %s (%d files)\n", bios.c_str(), F.system_dir.c_str(), n);
-            if (core_path.find("mame") != std::string::npos) {   // mame2003_plus / mamearcade：BIOS 要和游戏同目录
+            if (core_path.find("mame") != std::string::npos) {   // mame2003_plus / mamearcade: the BIOS must be in the same directory as the game
                 const std::string staged = ponia::stage_mame_content(F.content_path, bios, F.save_dir + "/.biosroms");
                 if (!staged.empty()) { plog("poniaplay: MAME content staged at %s\n", staged.c_str()); F.content_path = staged; }
             }
         }
     }
-    // 少数核心用「旧式选项」登记时第一个值不是真正的预设值（旧式约定第一个＝预设），这里按核心名补正；--option 指定的优先
+    // A few cores register "old-style options" whose first value is not the real default (by the old convention the first one = the default); fix it here by core name; --option has priority
     {
         static const struct { const char* core; const char* key; const char* val; } CORE_DEFAULTS[] = {
-            {"applewin", "applewin_machine", "Apple //e (enhanced)"},   // 第一个值 "Apple II (original)" 没有自动开机，会停在 ??@@ 画面
-            // PSP：缓冲 3 帧（同独立版）。核心预设 2 帧时 S18(G31) 2X 比赛只有 41~55 次/秒，3 帧可稳在 ~60（1118 实测）；代价是输入延迟略增
+            {"applewin", "applewin_machine", "Apple //e (enhanced)"},   // the first value "Apple II (original)" does not boot by itself and stops at the ??@@ screen
+            // PSP: 3-frame buffering (same as the standalone version). With the 2 frames that the core defaults to, a Mali-G31 class GPU only reaches 41-55 fps in 2X matches, while 3 frames hold about 60; the price is slightly more input latency
             {"ppsspp", "ppsspp_inflight_frames", "Up to 2"},
         };
         size_t q0 = core_path.find_last_of("/\\");
@@ -1361,7 +1361,7 @@ int ponia_play(int argc, char** argv) {
         for (const auto& d : CORE_DEFAULTS)
             if (cn.find(d.core) != std::string::npos && !F.opt_user.count(d.key)) F.opt_user[d.key] = d.val;
     }
-    // Dolphin 核心需要 dolphin-emu/Sys（GPL 的资料档）：BIOS 资料夹没有提供时，从 APK 里的 packs/Dolphin.zip 解到 system 目录
+    // The Dolphin core needs dolphin-emu/Sys (GPL data files): when the BIOS folder does not provide it, unpack packs/Dolphin.zip from the APK into the system directory
     if (core_path.find("dolphin") != std::string::npos && !file_exists(F.system_dir + "/dolphin-emu/Sys/codehandler.bin")) {
 #ifdef __ANDROID__
         if (SDL_RWops* rw = SDL_RWFromFile("packs/Dolphin.zip", "rb")) {
@@ -1379,8 +1379,8 @@ int ponia_play(int argc, char** argv) {
         plog("poniaplay: Dolphin needs dolphin-emu/Sys in the BIOS folder\n");
 #endif
     }
-    { size_t q = core_path.find_last_of("/\\"); F.core_name = core_path.substr(q == std::string::npos ? 0 : q + 1); F.no_serialize = F.core_name.find("yabasanshiro") != std::string::npos && !g_tmp_patched;   // tmpfile 补丁成功就不用停存档
-      // GameCube(Dolphin)：快进/快退一律关闭（S18 上会卡死；状态又大，快退本来就没意义）。存档/读档不受影响
+    { size_t q = core_path.find_last_of("/\\"); F.core_name = core_path.substr(q == std::string::npos ? 0 : q + 1); F.no_serialize = F.core_name.find("yabasanshiro") != std::string::npos && !g_tmp_patched;   // when the tmpfile patch succeeded, saving does not have to be paused
+      // GameCube (Dolphin): fast-forward/rewind are always off (it freezes on some devices, and the state is large, so rewinding makes no sense anyway). Saving/loading is not affected
       F.no_ffrew = F.core_name.find("dolphin") != std::string::npos; }
     if (!load_core(core_path.c_str())) return 3;
     if (core.api_version() != RETRO_API_VERSION) { plog("poniaplay: API version mismatch\n"); return 3; }
@@ -1429,7 +1429,7 @@ int ponia_play(int argc, char** argv) {
         if (!from_archive && !read_file(F.content_path, rom)) { plog("poniaplay: cannot read content\n"); return 5; }
         gi.data = rom.data(); gi.size = rom.size();
     }
-    // 备援：核心拒绝这个内容时（街机 romset 版本对不上最常见），依序换下一颗同类核心再试（需已安装；读取内容的方式要相同）
+    // Fallback: when a core refuses the content (most often because the arcade romset version does not match), try the next core of the same kind in turn (it must be installed and must read the content the same way)
     {
         std::vector<std::string> alt;
         const std::string sk0 = ponia::resolve_system(system_name);

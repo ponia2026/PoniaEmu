@@ -1,13 +1,13 @@
 .pragma library
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// Ponia 主题：机种资料表、识别、排序、配色
-// 排序规则：家用机 → 街机 → 掌机 → 电脑 → 其他；同类内按发行年份；年份未知的排最后，再按名称。
-// 用户自己的合集若不在表内：通用手柄图标 + 集合原名 + 归入「其他」，不显示年份。
+// Ponia theme: system data table, recognition, sorting, colours
+// Sort order: home consoles -> arcade -> handhelds -> computers -> other; by release year within a category; unknown years last, then by name.
+// A user's own collection that is not in the table: generic gamepad icon + the original collection name + category "other", no year shown.
 
-var CAT_ORDER = { home: 0, arcade: 1, hand: 2, computer: 3, other: 4, multi: 4 };   // multi = 旧名，等同 other（相容旧 overrides.json）
+var CAT_ORDER = { home: 0, arcade: 1, hand: 2, computer: 3, other: 4, multi: 4 };   // multi = old name, same as other (compatible with old overrides.json)
 
-// k=图标文件名；n=显示名（机种名不翻译）；c=类别；y=年份；a=可识别的简称（已去除非字母数字并小写）
+// k = icon file name; n = display name (system names are not translated); c = category; y = year; a = recognisable short names (non-alphanumerics removed, lower-cased)
 var CATALOG = [
   { k: "fc", ac: "#E5484D",      n: "Family Computer",  c: "home",   y: 1983, a: ["fc", "nes", "famicom", "fds", "famicomdisksystem"] },
   { k: "pce", ac: "#F4A259",     n: "PC Engine",        c: "home",   y: 1987, a: ["pce", "pcengine", "tg16", "turbografx16", "turbografx", "pcenginecd", "tgcd", "supergrafx", "sgx"] },
@@ -48,27 +48,27 @@ function norm(s) {
   return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-// 返回 { idx, hack }；找不到 idx = -1。"xxx hack" 这类改版借用原机种。
+// Returns { idx, hack }; idx = -1 when not found. A modified version such as "xxx hack" borrows the original system.
 function _lookup(str) {
   if (!_index) _buildIndex();
   var k = norm(str);
   if (_index[k] !== undefined) return { idx: _index[k], hack: false };
   var k2 = k.replace(/hacks?$/, "");
   if (k2 !== k && _index[k2] !== undefined) return { idx: _index[k2], hack: true };
-  // 前缀：如 "FBNEO ACT"、"MAME ETC"（中文整合包常按类型拆成多个合集）。只认长度 >= 4 的简称，取最长者。
+  // prefix: such as "FBNEO ACT", "MAME ETC" (Chinese repacks often split by type into several collections). Only short names of length >= 4 count, the longest wins.
   var best = "", bi = -1;
   for (var a in _index) {
     if (a.length >= 4 && a.length > best.length && k.indexOf(a) === 0) { best = a; bi = _index[a]; }
   }
   if (bi >= 0) return { idx: bi, hack: true };
-  // 中文关键字（整合包的合集名常是「动作街机」「红白机」这类；名称保留原样，只借用图标与类别）
+  // Chinese keywords (the collection names of repacks are often things like "action arcade" or "Famicom"; the name is kept as it is, only the icon and the category are borrowed)
   var raw = (str || "").toLowerCase();
   for (var i = 0; i < KEYWORDS.length; i++)
     if (raw.indexOf(KEYWORDS[i][0]) >= 0) return { idx: _index[KEYWORDS[i][1]], hack: true, noYear: !!KEYWORDS[i][2] };
   return { idx: -1, hack: false };
 }
 
-// [关键字, 借用的机种简称, 年份不可信(true=不显示年份)]
+// [keyword, short name of the system to borrow, year unreliable (true = do not show the year)]
 var KEYWORDS = [
   ["街机", "mame", true], ["街機", "mame", true],
   ["红白机", "fc", false], ["紅白機", "fc", false],
@@ -76,7 +76,7 @@ var KEYWORDS = [
 ];
 
 function _hex2(v) { var s = Math.round(v * 255).toString(16); return s.length < 2 ? "0" + s : s; }
-// CSS 风格 hsl(h,s,l) → "#rrggbb"（s、l 为 0~1）
+// CSS-style hsl(h,s,l) -> "#rrggbb" (s and l are 0-1)
 function hsl(h, s, l) {
   h = ((h % 360) + 360) % 360 / 360;
   var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
@@ -84,7 +84,7 @@ function hsl(h, s, l) {
   return "#" + _hex2(f(h + 1/3)) + _hex2(f(h)) + _hex2(f(h - 1/3));
 }
 function _hex(c) { return [parseInt(c.substr(1,2),16), parseInt(c.substr(3,2),16), parseInt(c.substr(5,2),16)]; }
-function _mix(a, b, t) {   // a 往 b 混 t（0~1）
+function _mix(a, b, t) {   // mix a towards b by t (0-1)
   var x = _hex(a), y = _hex(b);
   return "#" + _hex2((x[0] + (y[0] - x[0]) * t) / 255) + _hex2((x[1] + (y[1] - x[1]) * t) / 255) + _hex2((x[2] + (y[2] - x[2]) * t) / 255);
 }
@@ -95,13 +95,13 @@ function _paint(d) {
   return d;
 }
 
-// 宽屏机种（版面用 16:9）；其余用 4:3 版。可由 overrides.json 的 "r":"16:9" 或 "4:3" 覆盖。
-var WIDE = {};   // 版面一律 4:3（影片框）
-// 每一类机种共用一个图标（assets/icons/cat_*.png）；光晕仍按机种色
+// Widescreen systems (layout uses 16:9); the others use the 4:3 layout. Can be overridden by "r":"16:9" or "4:3" in overrides.json.
+var WIDE = {};   // the layout is always 4:3 (video frame)
+// Each category shares one icon (assets/icons/cat_*.png); the glow still follows the system colour
 var CAT_ICON = { home: "cat_home", hand: "cat_hand", arcade: "cat_arcade", computer: "cat_computer", other: "cat_other", multi: "cat_other", fav: "cat_fav" };
-var LETTERBOX = { psp: true, gc: true, dc: true };   // 原生16:9：影片/截图框内上下留黑
+var LETTERBOX = { psp: true, gc: true, dc: true };   // native 16:9: black bars above and below inside the video/screenshot frame
 
-// 「最爱」虚拟机种（借用通用手柄图标；排最前面；黄色系）
+// the "Favorites" virtual system (borrows the generic gamepad icon; sorted first; yellow tones)
 function favDesc(name) {
   return { icon: "fav", cicon: "cat_fav", name: name, cat: "fav", year: 0, hue: 46, fixed: false, pre: 1, wide: false, virtual: true, letterbox: false,
            ac: "#FF3B5C", base: "#FF3B5C", dark: "#D92F4D", ink: "#6B1E2D" };
@@ -113,7 +113,7 @@ function _hash(s) {
   return h;
 }
 
-// 用户自定义覆盖（选用）：以 shortName 小写为键，可写 { y, c, k, n }；由 theme.qml 从 overrides.json 读入后传进来
+// User overrides (optional): keyed by the lower-cased shortName, may contain { y, c, k, n }; read from overrides.json by theme.qml and passed in
 function describe(shortName, name, overrides) {
   var r = _lookup(shortName);
   if (r.idx < 0) r = _lookup(name);
@@ -143,7 +143,7 @@ function describe(shortName, name, overrides) {
   return _paint(d);
 }
 
-// descs: describe() 结果数组（与集合索引同序）；返回按规则排好的集合索引
+// descs: array of describe() results (same order as the collection index); returns the collection indices sorted by the rules
 function sortedOrder(descs) {
   var idx = [];
   for (var i = 0; i < descs.length; i++) idx.push(i);
@@ -157,7 +157,7 @@ function sortedOrder(descs) {
   return idx;
 }
 
-// 三组多边形底图（百分比坐标）：[种类(a=白.20 b=深.22 c=白.12), [x,y,...]]
+// three groups of polygon backgrounds (percentage coordinates): [kind (a=white .20, b=dark .22, c=white .12), [x,y,...]]
 var PRESETS = [
   [["a", [0,0, 46,0, 30,34, 0,48]], ["b", [46,0, 100,0, 100,40, 64,22]], ["c", [30,34, 64,22, 58,58, 22,70]],
    ["b", [0,48, 30,34, 22,70, 0,82]], ["a", [58,58, 100,40, 100,100, 70,100]], ["b", [0,82, 22,70, 70,100, 0,100]]],
@@ -169,8 +169,8 @@ var PRESETS = [
 
 function preset(i) { return PRESETS[((i % 3) + 3) % 3]; }
 
-// ================= 底图：三角格色块（参数由 facet_tool.html 调出）=================
-// 图层空间 960×600；系统页中间区取左 684 宽，游戏页取 960×440。
+// ================= background: triangle-grid colour patches (parameters tuned with facet_tool.html) =================
+// layer space 960x600; the middle area of the system page takes the left 684 width, the game page takes 960x440.
 var FACET = { cell: 48, jitter: 0.4, quadP: 0, pentP: 0, contrast: 0.55, grad: 0.45, gang: 320,
               wmax: 0.6, dmax: 0.5, mode: "smooth", seed: 8202, seedStep: 977 };
 
@@ -185,7 +185,7 @@ function _rngf(seed) {
 }
 
 var _facetCache = {};
-// 三角格 → 抖动 → 随机合并成菱形/五边形 → 依「光线渐层 + 随机」给明暗 tone ∈ [-1,1]
+// triangle grid -> jitter -> randomly merged into rhombi/pentagons -> light/dark tone in [-1,1] from a "light gradient + random"
 function facetPolys(seed) {
   if (_facetCache[seed]) return _facetCache[seed];
   var P = FACET, W = 960, H = 600, r = _rngf(seed);
@@ -273,7 +273,7 @@ function facetPolys(seed) {
   return polys;
 }
 
-// 每个机种固定一组图样（FC 就是调好的那一组）
+// each system has one fixed pattern (FC is the one that was tuned)
 function facetSeed(desc) { return FACET.seed + ((desc && desc.pre) || 0) * FACET.seedStep; }
 
 function _rgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
@@ -282,7 +282,7 @@ function _mixHex(a, b, t) {
   for (var i = 0; i < 3; i++) o.push(Math.round(a[i] + (b[i] - a[i]) * t));
   return "rgb(" + o[0] + "," + o[1] + "," + o[2] + ")";
 }
-// 一块多边形最终的不透明颜色
+// final opaque colour of a polygon
 function facetFill(tone, baseHex, darkHex) {
   var b = _rgb(baseHex);
   return tone > 0 ? _mixHex(b, [255, 255, 255], tone * FACET.wmax) : _mixHex(b, _rgb(darkHex), -tone * FACET.dmax);

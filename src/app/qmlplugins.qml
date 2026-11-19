@@ -16,8 +16,8 @@
 
 
 // This file lists the QML modules which should be
-// included in a static build. It'll be read by qmake
-// during the configuration step.
+// included in a static build or in the Android package.
+// It is scanned by qmlimportscanner (see QT_QML_ROOT_PATH in CMakeLists.txt).
 
 
 import QtQuick 2.0
@@ -28,7 +28,7 @@ import QtQuick.Timeline 1.0
 import QtQuick.Window 2.0
 
 import QtGraphicalEffects 1.0
-import Qt5Compat.GraphicalEffects  // Qt 6 下 QtGraphicalEffects 由 qmlcompat 转发到它；写出来供部署扫描器收录
+import Qt5Compat.GraphicalEffects  // QtGraphicalEffects is forwarded to it by qmlcompat under Qt 6; it is written out so that the deployment scanner picks it up
 import QtMultimedia 5.8
 
 import QtQml.Models 2.15

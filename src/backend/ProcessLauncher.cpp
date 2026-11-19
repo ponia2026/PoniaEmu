@@ -173,18 +173,18 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
     const model::Game& game = *gamefile.parentGame();
 
     QString launch_cmd_str = game.launchCmd();
-    // 没写启动命令：认得的机种自动用内建 Libretro 播放器（依集合简称/名称判断）
+    // No launch command given: known systems automatically use the built-in Libretro player (decided by the collection short name/name)
     if (launch_cmd_str.trimmed().isEmpty()) {
         const std::string key = ponia::system_key_for_game(game, &gamefile.fileinfo());
         if (!key.empty()) {
             const char* standalone = nullptr;
 #ifdef Q_OS_ANDROID
-            standalone = ponia::standalone_launch_cmd(key);   // PSP / GameCube：交给已安装的独立模拟器 App
+            standalone = ponia::standalone_launch_cmd(key);   // PSP / GameCube: hand over to an installed standalone emulator app
             if (standalone && key == "psp") {
-                // PPSSPP 键位：按「位置」对应（南=✕ 东=○ 西=□ 北=△），热键 SELECT+START 退出 / +R1 存档 / +L1 读档；单独 L2 = PPSSPP 主菜单（+X 分辨率 / +Y FPS / +R2 快进 / +L2 快退 PPSSPP 做不到，弃用）。
-                // 只在「第一次从 Ponia 启动 PSP 游戏」时覆盖（用户何时装 PPSSPP 不可知，也不要每次抹掉用户自己的调整）；改版本号 = 重新覆盖一次。
-                // Android 键码：A96 B97 X99 Y100 L1 102 R1 103 START108；手把「Back/Select」在系统键盘布局里常被映成 BACK(4) 而不是 SELECT(109)，两个都绑；
-                // L2/R2 在这类手把上是轴不是键：轴码 = 4000 + 轴号*2（LTRIGGER=17 → 4034，RTRIGGER=18 → 4036）。
+                // PPSSPP controls: mapped by "position" (south=✕ east=○ west=□ north=△), hotkeys SELECT+START quit / +R1 save state / +L1 load state; L2 alone = PPSSPP main menu (+X resolution / +Y FPS / +R2 fast forward / +L2 rewind cannot be done in PPSSPP, so they are dropped).
+                // Only overwritten the first time a PSP game is launched from Ponia (it is not known when the user installs PPSSPP, and the user's own tweaks should not be wiped every time); changing the version number = overwrite once more.
+                // Android key codes: A96 B97 X99 Y100 L1 102 R1 103 START108; on such gamepads "Back/Select" is often mapped to BACK(4) instead of SELECT(109) by the system key layout, so bind both;
+                // L2/R2 are axes, not keys, on such gamepads: axis code = 4000 + axis number*2 (LTRIGGER=17 -> 4034, RTRIGGER=18 -> 4036).
                 const QString marker = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/psp_controls_v3.done");
                 if (!QFileInfo::exists(marker)) {
                     const char* ini =
@@ -235,7 +235,7 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
         emit processLaunchError(message);
         return;
     }
-    // 内置 Libretro 播放器：裸命令 `poniaplay` 优先取主程序同目录那一份（装在哪都找得到）
+    // Built-in Libretro player: the bare command `poniaplay` prefers the copy next to the main program (found wherever it is installed)
     if (command == QLatin1String("poniaplay")) {
         const QString sibling = QCoreApplication::applicationDirPath() + QLatin1String("/poniaplay");
         if (QFileInfo::exists(sibling))
@@ -244,7 +244,7 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
     command = helpers::abs_launchcmd(command, game.launchCmdBasedir());
 
 #ifdef Q_OS_ANDROID
-    const bool is_player = (command == QLatin1String("poniaplay"));   // 内置播放器：开 PlayerActivity
+    const bool is_player = (command == QLatin1String("poniaplay"));   // built-in player: opens PlayerActivity
     const bool android_command_valid = is_player || command.toLower() == QLatin1String("am");
     const bool android_args_valid = is_player || (!args.isEmpty() && args.first().toLower() == QLatin1String("start"));
     if (!android_command_valid || !android_args_valid) {

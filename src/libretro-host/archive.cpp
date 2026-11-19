@@ -74,7 +74,7 @@ bool mkdirs(const std::string& path)   // mkdir -p
     return true;
 }
 
-// 压缩包内的相对路径：统一成 '/'，拒绝绝对路径与 ".."（zip-slip）。
+// Relative path inside the archive: unified to '/', absolute paths and ".." are rejected (zip-slip).
 bool safe_rel(std::string& name)
 {
     for (char& c : name)
@@ -165,7 +165,7 @@ bool zip_read_dir(FILE* f, std::vector<ZipEnt>& out, std::string& err)
         z.name.assign(reinterpret_cast<const char*>(h + 46), nl);
 
         const uint8_t* x = h + 46 + nl;
-        for (size_t xp = 0; xp + 4 <= el;) {   // ZIP64 extra field：只补上 32 位放不下（0xFFFFFFFF）的欄位
+        for (size_t xp = 0; xp + 4 <= el;) {   // ZIP64 extra field: only fills in the fields that do not fit in 32 bits (0xFFFFFFFF)
             const uint16_t tag = rd16(x + xp), sz = rd16(x + xp + 2);
             if (xp + 4 + sz > el) break;
             if (tag == 0x0001) {
@@ -317,7 +317,7 @@ public:
 
     ArchiveEntry entry(uint32_t i) const
     {
-        const size_t len = SzArEx_GetFileNameUtf16(&db_, i, nullptr);   // 含结尾的 NUL
+        const size_t len = SzArEx_GetFileNameUtf16(&db_, i, nullptr);   // includes the terminating NUL
         std::vector<uint16_t> w(len ? len : 1, 0);
         SzArEx_GetFileNameUtf16(&db_, i, w.data());
         ArchiveEntry e;
@@ -327,7 +327,7 @@ public:
         return e;
     }
 
-    // data 指向内部缓存（固实区块），下次 extract 或物件销毁前有效。
+    // data points into an internal cache (solid block), valid until the next extract or until the object is destroyed.
     bool extract(uint32_t i, const uint8_t*& data, size_t& size, std::string& err)
     {
         size_t off = 0, processed = 0;
@@ -351,7 +351,7 @@ private:
 
 }  // namespace
 
-// ================================================================ 公开接口
+// ================================================================ public interface
 
 ArchiveKind archive_kind(const std::string& path)
 {
@@ -441,7 +441,7 @@ bool archive_extract_all(const std::string& path, const std::string& dest_dir, s
     if (!mkdirs(dest_dir)) { err = "cannot create " + dest_dir; return false; }
     uint64_t total = 0;
 
-    // 写出一个档案（rel 已通过 safe_rel）
+    // Write out one file (rel has passed safe_rel)
     const auto open_out = [&](const std::string& rel, std::string& full) -> FILE* {
         full = dest_dir + "/" + rel;
         const std::string dir = parent_dir(full);
@@ -522,7 +522,7 @@ int archive_pick(const std::vector<ArchiveEntry>& entries, const char* valid_ext
     if (exts.empty()) return first_file;
 
     const auto listed = [&](const std::string& e) { return std::find(exts.begin(), exts.end(), e) != exts.end(); };
-    for (const char* desc : { "m3u", "cue", "gdi" }) {   // 描述档优先
+    for (const char* desc : { "m3u", "cue", "gdi" }) {   // description files first
         for (size_t i = 0; i < entries.size(); ++i)
             if (!entries[i].is_dir && ext_of(entries[i].name) == desc && listed(desc))
                 return (int)i;
@@ -530,7 +530,7 @@ int archive_pick(const std::vector<ArchiveEntry>& entries, const char* valid_ext
     for (size_t i = 0; i < entries.size(); ++i)
         if (!entries[i].is_dir && listed(ext_of(entries[i].name)))
             return (int)i;
-    return files == 1 ? only_file : -1;   // 只有一个档案时，副档名对不上也交给核心试试
+    return files == 1 ? only_file : -1;   // when there is only one file, hand it to the core even if the extension does not match
 }
 
 bool archive_safe_path(std::string& name) { return safe_rel(name); }

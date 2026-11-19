@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 判断一款游戏属于哪个机种键（决定自动用哪颗 Libretro 核心）。
-// 顺序：游戏的 x-system → ROM 所在资料夹名 → 集合简称 → 集合名。
-// 原因：多个资料夹可以合并成同一个集合（例：ATARI2600/5200/7800 → ATARI），
-// 合并后集合只剩一个简称，分不出各资料夹该用哪颗核心。
+// Decide which system key a game belongs to (this decides which Libretro core is used automatically).
+// Order: the x-system of the game -> name of the folder holding the ROM -> collection short name -> collection name.
+// Reason: several folders can be merged into one collection (for example ATARI2600/5200/7800 -> ATARI),
+// and the merged collection only keeps one short name, so it cannot tell which core each folder needs.
 #pragma once
 
 #include "model/gaming/Collection.h"
@@ -20,10 +20,10 @@
 
 namespace ponia {
 
-// file：这次要开的那个 ROM 文件；传 nullptr 则取游戏的第一个文件。
+// file: the ROM file to open this time; nullptr uses the first file of the game.
 inline std::string system_key_for_game(const model::Game& game, const QFileInfo* file = nullptr)
 {
-    // 1. 游戏自己写的 x-system（Pegasus 会忽略 x- 开头的栏位，所以两边都相容）
+    // 1. x-system written by the game itself (Pegasus ignores fields that start with x-, so both are compatible)
     const QVariantMap& extra = game.extraMap();
     const auto it = extra.constFind(QStringLiteral("system"));
     if (it != extra.cend()) {
@@ -34,7 +34,7 @@ inline std::string system_key_for_game(const model::Game& game, const QFileInfo*
         }
     }
 
-    // 2. ROM 所在资料夹名（FC、ATARI5200、FBNeo hack …）
+    // 2. name of the folder that holds the ROM (FC, ATARI5200, FBNeo hack ...)
     QFileInfo fi;
     if (file) {
         fi = *file;
@@ -50,7 +50,7 @@ inline std::string system_key_for_game(const model::Game& game, const QFileInfo*
             return k;
     }
 
-    // 3~4. 集合简称、集合名
+    // 3-4. collection short name, collection name
     for (const model::Collection* col : game.collectionsModel()->entries()) {
         const std::string k = resolve_system(col->shortName().toStdString(), col->name().toStdString());
         if (!k.empty())

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 搜寻用画面键盘（A–Z、0–9、空白、退格、清除、完成）。手把用方向键 + 确认；实体键盘直接打字（由 theme.qml 转交）。
+// On-screen keyboard for search (A-Z, 0-9, space, backspace, clear, done). Gamepad: D-pad + accept; a physical keyboard types directly (forwarded by theme.qml).
 import QtQuick 2.15
 
 Item {
@@ -19,7 +19,7 @@ Item {
     property string clearText: "Clear"
     property string spaceText: "Space"
 
-    signal textEdited(string text)    // 内容变动（即时过滤）
+    signal textEdited(string text)    // content changed (filter live)
     signal closed()
 
     readonly property var rows: [
@@ -46,7 +46,7 @@ Item {
         else typeChar(k);
     }
 
-    // 返回 true = 已处理
+    // returns true = handled
     function handleKey(event, keys) {
         if (!visible) return false;
         if (event.key === Qt.Key_Left) { cc = (cc + rows[cr].length - 1) % rows[cr].length; return true; }
@@ -54,13 +54,13 @@ Item {
         if (event.key === Qt.Key_Up) { cr = (cr + rows.length - 1) % rows.length; cc = Math.min(cc, rows[cr].length - 1); return true; }
         if (event.key === Qt.Key_Down) { cr = (cr + 1) % rows.length; cc = Math.min(cc, rows[cr].length - 1); return true; }
         if (event.isAutoRepeat) return true;
-        // 实体键盘的退格键同时也是「取消」键之一：在这里优先当退格；手把 B 键送来的是 Esc，仍然会关闭键盘
+        // Backspace of a physical keyboard is also one of the "cancel" keys: here it counts as backspace first; the B button of a gamepad sends Esc, which still closes the keyboard
         if (event.key === Qt.Key_Backspace) { backspace(); return true; }
         if (keys.isAccept(event)) { press(); return true; }
         if (keys.isCancel(event)) { close(); return true; }
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { close(); return true; }
         if (event.text && event.text.length === 1 && event.text >= " " && event.key !== Qt.Key_Escape) { typeChar(event.text); return true; }
-        return true;      // 打开时吞掉其余按键，避免操作到后面的画面
+        return true;      // swallow the other keys while open, so that the screen behind is not operated
     }
 
     Rectangle { anchors.fill: parent; color: Qt.rgba(0, 0, 0, 0.45) }

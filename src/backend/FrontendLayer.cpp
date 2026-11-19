@@ -66,7 +66,7 @@ void FrontendLayer::rebuild()
     // Modules emulating Qt 5 ones for older themes (see src/frontend/qmlcompat)
     m_engine->addImportPath(QStringLiteral("qrc:/qmlcompat"));
 #ifdef Q_OS_ANDROID
-    // 安卓上插件是 APK 里的 libqml_*.so，QtMultimedia 的替代 qmldir 要用安卓版（插件名不同）
+    // On Android the plugins are libqml_*.so inside the APK, so the replacement qmldir of QtMultimedia must be the Android one (the plugin names differ)
     m_engine->addImportPath(QStringLiteral("qrc:/qmlcompat-android"));
 #else
     // The replacement QtMultimedia module still loads the plugin of the real one

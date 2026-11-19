@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// Ponia 主题（PoniaFE 自创；只用天马/Ponia 两边都有的 API，原版天马也能载入）
-// 系统页：五格马卡龙底图 + 固定版位；机种按「最爱(虚拟) → 家用机 → 街机 → 掌机 → 多平台」再依年份排序。
-// 游戏页：左列表 + 右影片/简介/封面；版面依机种分 4:3 / 16:9。
-// 设计稿与参数见 ponia-theme-samples（system_view_v3 / gamelist_gba_*_v3）。
+// Ponia theme (written for PoniaEmu; uses only APIs that exist in both Pegasus and Ponia, so the original Pegasus can load it too)
+// System page: five-panel macaron background + fixed layout; systems are sorted by "Favorites (virtual) -> home consoles -> arcade -> handhelds -> multi-platform", then by year.
+// Game page: list on the left + video/description/cover on the right; the layout is 4:3 / 16:9 depending on the system.
+// Design drafts and parameters: see ponia-theme-samples (system_view_v3 / gamelist_gba_*_v3).
 import QtQuick 2.15
 import "systems.js" as Sys
 
@@ -11,12 +11,12 @@ FocusScope {
     id: root
     focus: true
 
-    // ---- 机种清单状态 ----
+    // ---- system list state ----
     property var overrides: ({})
-    property var descs: []             // 与 api.collections 同序的机种描述
-    property var order: []             // 全部条目：-1＝「最爱」虚拟机种，其余＝集合索引（已排序）
-    property var shown: []             // 套用「机种搜寻」后的条目
-    property int pos: 0                // 在 shown 里的位置
+    property var descs: []             // system descriptions, in the same order as api.collections
+    property var order: []             // all entries: -1 = the virtual "Favorites" system, the others = collection index (sorted)
+    property var shown: []             // entries after the "system search" is applied
+    property int pos: 0                // position in shown
     property string sysQuery: ""
     property bool sysNoMatch: false
 
@@ -30,27 +30,27 @@ FocusScope {
     readonly property var nextDesc: n > 0 ? entryDesc(shown[(pos + 1) % n]) : favDesc
     readonly property var shownDescs: { var a = []; for (var i = 0; i < shown.length; i++) a.push(entryDesc(shown[i])); return a; }
 
-    // ---- 游戏页状态 ----
+    // ---- game page state ----
     property bool inGames: false
     property int gameIndex: 0
     property string gameQuery: ""
-    property var favGames: []          // 所有最爱游戏（「最爱」虚拟机种的内容）
-    property var rowMap: null          // 搜寻过滤后的来源索引；null＝不过滤
+    property var favGames: []          // all favourite games (the content of the virtual "Favorites" system)
+    property var rowMap: null          // source indices after search filtering; null = no filtering
     property int rowCount: 0
-    property int favInSys: 0           // 当前机种里的最爱数（系统页数量框用）
+    property int favInSys: 0           // number of favourites in the current system (for the count box of the system page)
     property int gamesInSys: 0
 
-    // ---- 字体：上下白条与列表用 Noto Sans TC，中间区域用 Varela Round ----
+    // ---- fonts: Noto Sans TC for the top/bottom white bars and the list, Varela Round for the middle area ----
     FontLoader { id: fontTcR; source: "assets/fonts/NotoSansTC-Regular.ttf" }
     FontLoader { id: fontTcB; source: "assets/fonts/NotoSansTC-Bold.ttf" }
     FontLoader { id: fontScR; source: "assets/fonts/NotoSansSC-Regular.ttf" }
     FontLoader { id: fontScB; source: "assets/fonts/NotoSansSC-Bold.ttf" }
     FontLoader { id: fontRound; source: "assets/fonts/VarelaRound-Regular.ttf" }
-    // 翻译文件里只有简体中文把这条译成 "CJK:SC"，借此知道目前是简体界面
+    // Among the translation files only Simplified Chinese translates this string to "CJK:SC", which tells us that the interface is currently Simplified
     readonly property bool useSC: (qsTr("CJK:TC") + api.tr) === "CJK:SC"
     readonly property string uiFamily: useSC ? fontScR.name : fontTcR.name
 
-    // ---- 文案（机种名不翻译；其余走翻译）----
+    // ---- texts (system names are not translated; the rest goes through translation) ----
     readonly property string tBrowse: (qsTr("Browse") + api.tr)
     readonly property string tConfirm: (qsTr("Confirm") + api.tr)
     readonly property string tExit: (qsTr("Exit") + api.tr)
@@ -61,7 +61,7 @@ FocusScope {
     readonly property string tPage: (qsTr("Page") + api.tr)
     readonly property string tAll: (qsTr("All games") + api.tr)
     readonly property string tFavGames: (qsTr("Favorite games") + api.tr)
-    readonly property string tFavName: "Favorites"   // 不翻译，维持原文
+    readonly property string tFavName: "Favorites"   // not translated, keep the original text
     readonly property string tEmptyFav: (qsTr("No favorites yet. Press the favorite button on a game to add it here.") + api.tr)
     readonly property string tNoMatch: (qsTr("No match") + api.tr)
     readonly property string tSearchSys: (qsTr("Search systems") + api.tr)
@@ -76,7 +76,7 @@ FocusScope {
         other: (qsTr("Others") + api.tr), multi: (qsTr("Others") + api.tr)
     })
 
-    // ---- 首次下载游戏核心（Ponia 专有 api.cores；没有就当不存在）----
+    // ---- first download of game cores (api.cores is Ponia-only; treated as absent when missing) ----
     readonly property var cores: (typeof api.cores !== "undefined") ? api.cores : null
     property bool coreDlgClosed: false
     readonly property bool coreDlgOpen: cores !== null && !inGames && !osk.visible
@@ -98,7 +98,7 @@ FocusScope {
         cores.state === "error" ? [ { icon: "dot_down", label: (qsTr("Retry") + api.tr) }, { icon: "dot_right", label: (qsTr("Close") + api.tr) } ] :
         [ { icon: "dot_down", label: (qsTr("Download") + api.tr) }, { icon: "dot_right", label: (qsTr("Later") + api.tr) } ]
 
-    // ================= 机种清单 =================
+    // ================= system list =================
     function entryDesc(e) { return e < 0 ? favDesc : descs[e]; }
 
     function rebuild() {
@@ -110,7 +110,7 @@ FocusScope {
         }
         descs = d;
         order = [-1].concat(Sys.sortedOrder(d));
-        // 记住上次的机种（api.memory 由天马保存，原版天马同样可用）
+        // remember the last system (api.memory is stored by Pegasus, so the original Pegasus works the same)
         var want = cnt > 0 ? 0 : -1;
         var saved = api.memory.get("macaron.sys");
         if (saved === "@fav") want = -1;
@@ -118,7 +118,7 @@ FocusScope {
         applySysFilter(want);
     }
 
-    // keep＝要保持选中的条目
+    // keep = the entry that should stay selected
     function applySysFilter(keep) {
         var q = sysQuery.toLowerCase();
         var res = [];
@@ -128,14 +128,14 @@ FocusScope {
             if (q === "" || nm.toLowerCase().indexOf(q) >= 0) res.push(e);
         }
         sysNoMatch = (res.length === 0);
-        if (res.length === 0) return;           // 没有符合就保持原清单，只亮「无符合」提示
+        if (res.length === 0) return;           // no match: keep the original list and only light up the "no match" hint
         shown = res;
         var p = shown.indexOf(keep);
         pos = p >= 0 ? p : 0;
         refreshSysStats();
     }
 
-    // 选用：theme 目录下 overrides.json，形如 {"pico8":{"y":2015,"c":"other","n":"PICO-8","r":"16:9"}}
+    // optional: overrides.json in the theme directory, shaped like {"pico8":{"y":2015,"c":"other","n":"PICO-8","r":"16:9"}}
     function loadOverrides() {
         var x = new XMLHttpRequest();
         x.open("GET", Qt.resolvedUrl("overrides.json"));
@@ -180,7 +180,7 @@ FocusScope {
         refreshSysStats();
     }
 
-    // ================= 游戏列表 =================
+    // ================= game list =================
     function srcCount() { return curE < 0 ? favGames.length : (sysCol ? sysCol.games.count : 0); }
     function srcGet(i) { return curE < 0 ? favGames[i] : sysCol.games.get(i); }
     function rowGame(r) {
@@ -189,7 +189,7 @@ FocusScope {
     }
     function currentGame() { return inGames ? rowGame(gameIndex) : null; }
 
-    // keepSel=true：搜寻条件改变时尽量保持原本选中的那款游戏
+    // keepSel=true: when the search condition changes, try to keep the previously selected game
     function applyGameFilter(keepSel) {
         var keep = keepSel ? currentGame() : null;
         var q = gameQuery.toLowerCase();
@@ -224,7 +224,7 @@ FocusScope {
         gameIndex = Math.max(0, Math.min(rowCount - 1, i));
         if (!rowMap) api.memory.set("macaron.g." + entryKey(curE), gameIndex);
     }
-    // 游戏页内切机种（L1/R1）
+    // switch system within the game page (L1/R1)
     function switchSystem(delta) {
         setPos(pos + delta);
         enterGames();
@@ -234,10 +234,10 @@ FocusScope {
         if (!g) return;
         g.favorite = !g.favorite;
         buildFavs();
-        if (curE < 0) applyGameFilter();       // 最爱列表里取消 → 当场消失
+        if (curE < 0) applyGameFilter();       // unfavourite in the favourites list -> disappears at once
         refreshSysStats();
     }
-    // 启动前先停掉影片并稍等一下：影片播放中（硬件解码器占着）启动 RetroArch 会让它在安卓上直接当掉
+    // Before launching, stop the video and wait a moment: launching a game while a video is playing (the hardware decoder is busy) crashes it outright on Android
     property bool launching: false
     property var pendingGame: null
     function launchCurrent() {
@@ -258,9 +258,9 @@ FocusScope {
             if (g) g.launch();
         }
     }
-    onLaunchingChanged: { /* 影片的暂停由 GameView.mediaPaused 绑定 */ }
+    onLaunchingChanged: { /* the pause of the video is bound by GameView.mediaPaused */ }
 
-    // ================= 舞台：按 960×540 设计稿等比缩放 =================
+    // ================= stage: scaled proportionally from the 960x540 design draft =================
     Rectangle { anchors.fill: parent; color: "#ffffff" }
 
     Item {
@@ -301,7 +301,7 @@ FocusScope {
             fontUi: root.uiFamily; fontRound: fontRound.name
         }
 
-        // 机种搜寻条件（系统页）
+        // system search condition (system page)
         Chip {
             visible: !root.inGames && root.sysQuery !== ""
             x: 480 - width / 2; y: 52
@@ -310,7 +310,7 @@ FocusScope {
             ink: root.curDesc.ink; fontUi: root.uiFamily
         }
 
-        // 上白条：左 Ponia 标志，右网络 + 时间
+        // top white bar: Ponia logo on the left, network + time on the right
         Rectangle {
             x: 0; y: 0; width: 960; height: 44; color: Qt.rgba(1, 1, 1, 0.25)
             z: 5
@@ -332,7 +332,7 @@ FocusScope {
             }
         }
 
-        // 下白条：操作提示（一整块米色圆角矩形）
+        // bottom white bar: hints (one beige rounded rectangle)
         Rectangle {
             x: 0; y: 484; width: 960; height: 56; color: Qt.rgba(1, 1, 1, 0.25)
             z: 5
@@ -354,14 +354,14 @@ FocusScope {
             }
         }
 
-        // ---- 首次下载游戏核心（api.cores 只有 Ponia 有；原版天马没有这个物件，整段不会出现）----
+        // ---- first download of game cores (api.cores only exists in Ponia; the original Pegasus has no such object, so this whole block never appears) ----
         Item {
             id: coreDlg
             anchors.fill: parent
             z: 20
             visible: root.coreDlgOpen
             Rectangle { anchors.fill: parent; color: Qt.rgba(0.12, 0.13, 0.15, 0.45) }
-            MouseArea { anchors.fill: parent }   // 吃掉点击
+            MouseArea { anchors.fill: parent }   // swallow clicks
 
             Rectangle {
                 width: 560; height: 276; radius: 28
@@ -389,7 +389,7 @@ FocusScope {
                     text: root.cores ? root.cores.missingNames.join("  ·  ") : ""
                     font.family: root.uiFamily; font.pixelSize: 13; color: "#7A7F87"
                 }
-                Rectangle {   // 进度条
+                Rectangle {   // progress bar
                     visible: root.cores && root.cores.state === "downloading"
                     x: 32; y: 172; width: parent.width - 64; height: 10; radius: 5
                     color: Qt.rgba(0.5, 0.5, 0.55, 0.2)
@@ -421,10 +421,10 @@ FocusScope {
         }
     }
 
-    // ================= 按键 =================
-    // 天马按键语义：A=isAccept、B=isCancel、X=isDetails（搜寻）、Y=isFilters（加入最爱）、L1/R1=isPrevPage/isNextPage
+    // ================= keys =================
+    // Pegasus key semantics: A=isAccept, B=isCancel, X=isDetails (search), Y=isFilters (add to favourites), L1/R1=isPrevPage/isNextPage
     Keys.onPressed: (event) => {
-        if (coreDlg.visible) {   // 首次下载核心对话框：确认＝下载／关闭／重试，取消＝以后再说／关闭
+        if (coreDlg.visible) {   // first-download dialog for cores: accept = download / close / retry, cancel = later / close
             event.accepted = true;
             if (event.isAutoRepeat) return;
             var cs = cores.state;
@@ -449,7 +449,7 @@ FocusScope {
             else if (api.keys.isAccept(event)) { event.accepted = true; enterGames(); }
             else if (api.keys.isDetails(event)) { event.accepted = true; osk.title = tSearchSys; osk.open(sysQuery); }
             else if (api.keys.isCancel(event) && sysQuery !== "") { event.accepted = true; sysQuery = ""; applySysFilter(curE); }
-            // 其余（含取消/菜单键）交给主程序打开主菜单
+            // everything else (including cancel/menu keys) is handed to the main program to open the main menu
         } else {
             if (event.key === Qt.Key_Down) { event.accepted = true; setGame(gameIndex + 1); }
             else if (event.key === Qt.Key_Up) { event.accepted = true; setGame(gameIndex - 1); }

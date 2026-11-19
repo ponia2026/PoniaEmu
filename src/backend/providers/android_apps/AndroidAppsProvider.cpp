@@ -126,7 +126,7 @@ AndroidAppsProvider::AndroidAppsProvider(QObject* parent)
     : Provider(QLatin1String("androidapps"), QStringLiteral("Android Apps"), PROVIDER_FLAG_CACHEABLE, parent)
     , m_metahelper(display_name())
 {
-    // 默认关闭：它会把设备上所有 App 当成游戏列出，多数人不想要；设置里可手动开启
+    // Off by default: it would list every app on the device as a game, which most people do not want; it can be turned on in the settings
     setEnabled(false);
 }
 

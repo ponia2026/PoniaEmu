@@ -14,7 +14,7 @@ function(pegasus_add_common_props target)
         QT_NO_URL_CAST_FROM_STRING
     )
 
-    # ponia_version.h 每次编译都重新产生（见 cmake/PoniaVersion.cmake）
+    # ponia_version.h is regenerated on every build (see cmake/PoniaVersion.cmake)
     add_dependencies(${target} ponia_version)
     target_include_directories(${target} PRIVATE "${PONIA_VERSION_HEADER_DIR}")
 

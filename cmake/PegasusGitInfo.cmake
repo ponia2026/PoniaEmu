@@ -9,8 +9,8 @@ execute_process(COMMAND
     OUTPUT_VARIABLE PEGASUS_GIT_DESCRIBE
 )
 
-# PoniaFE 自己的版本号从 1.0.0 起；显示为「1.0.0+提交号」，有未提交改动时加 -dirty
-# PONIAFE_VERSION 改由 cmake/PoniaVersion.cmake 提供（产品名与版本号只写一次）
+# PoniaEmu's own version starts at 1.0.0 and is shown as "1.0.0+commit", with -dirty added when there are uncommitted changes
+# PONIAFE_VERSION now comes from cmake/PoniaVersion.cmake (the product name and the version are written in one place only)
 execute_process(COMMAND
     git
     --git-dir "${PROJECT_SOURCE_DIR}/.git"

@@ -66,8 +66,8 @@ MenuScreen {
                     text: qsTr("About") + api.tr
                 }
                 Text {
-                    // 产品名、版本号、编译日期、提交号都来自 ponia_version.h（每次编译重新产生）；
-                    // 整行不翻译：与 APK 文件名同格式 PoniaEmu_v1.0.0-20261118(10f78221).apk
+                    // Product name, version, build date and commit all come from ponia_version.h (regenerated on every build);
+                    // the whole line is not translated
                     property string programInfo: Internal.meta.productName
                         + " v" + Internal.meta.version
                         + " · " + Internal.meta.buildDate

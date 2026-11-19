@@ -166,11 +166,11 @@ void CoreInstaller::scan(const std::vector<model::Collection*>& collections)
     };
     for (const model::Collection* col : collections) {
         const auto& games = col->gameList()->entries();
-        if (games.empty()) {   // 空集合：退回看集合简称/名称
+        if (games.empty()) {   // empty collection: fall back to the collection short name/name
             want_system(ponia::resolve_system(col->shortName().toStdString(), col->name().toStdString()));
             continue;
         }
-        for (const model::Game* game : games)   // 合并集合（如 ATARI）逐款判断，才分得出 2600/5200/7800
+        for (const model::Game* game : games)   // merged collections (such as ATARI) are judged game by game, which is the only way to tell 2600/5200/7800 apart
             want_system(ponia::system_key_for_game(*game));
     }
     m_missing.assign(wanted.cbegin(), wanted.cend());

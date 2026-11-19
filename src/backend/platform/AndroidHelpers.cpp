@@ -141,7 +141,7 @@ bool has_external_storage_access()
 
 void install_bundled_themes(const QString& themes_dir)
 {
-    // Qt 的 assets:/ 目录枚举在这里不可靠，交给 Java 的 AssetManager 解包
+    // Enumerating assets:/ with Qt is unreliable here, so Java's AssetManager does the unpacking
     static constexpr auto JNI_METHOD = "installBundledThemes";
     static constexpr auto JNI_SIGNATURE = "(Ljava/lang/String;Ljava/lang/String;)V";
 

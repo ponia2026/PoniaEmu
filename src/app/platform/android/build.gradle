@@ -18,7 +18,7 @@ apply plugin: 'com.android.application'
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
-    // MainActivity/LaunchFileProvider 用到 FileProvider
+    // FileProvider is used by MainActivity/LaunchFileProvider
     implementation "androidx.core:core:1.6.0"
 }
 

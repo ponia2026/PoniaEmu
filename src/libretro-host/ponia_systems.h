@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 机种别名 -> 机种键（与主题 systems.js 的 icon 键一致）。前端（自动带默认启动命令）与 poniaplay 共用。
-// 只列走内建 Libretro 播放器的机种（含 PSP/Saturn：走 libretro 核心；目前没有机种走独立模拟器 App）。
+// System alias -> system key (matches the icon key of systems.js in the theme). Shared by the frontend (which adds a default launch command automatically) and poniaplay.
+// Only the systems that go through the built-in Libretro player are listed (including PSP/Saturn: via libretro cores; currently no system uses a standalone emulator app).
 #pragma once
 #include <cctype>
 #include <string>
 
 namespace ponia {
 
-struct SystemAlias { const char* key; const char* aliases; };   // aliases：逗号分隔，已去除非字母数字并小写
+struct SystemAlias { const char* key; const char* aliases; };   // aliases: comma separated, with non-alphanumerics removed and lower-cased
 
 inline const SystemAlias* system_aliases(int& count) {
     static const SystemAlias T[] = {
@@ -58,7 +58,7 @@ inline bool alias_has(const char* list, const std::string& k) {
     return false;
 }
 
-// 依集合简称、名称找机种键；找不到回空字串。支持 "xxx hack" 尾缀与较长前缀（如 "FBNEO ACT"）。
+// Find the system key by collection short name or name; returns an empty string when not found. Supports a trailing "xxx hack" and longer prefixes (such as "FBNEO ACT").
 inline std::string resolve_system(const std::string& short_name, const std::string& name = std::string()) {
     int n; const SystemAlias* T = system_aliases(n);
     for (const std::string* src : {&short_name, &name}) {
@@ -69,7 +69,7 @@ inline std::string resolve_system(const std::string& short_name, const std::stri
             std::string k2 = k.substr(0, k.size() - 4);
             for (int i = 0; i < n; ++i) if (alias_has(T[i].aliases, k2)) return T[i].key;
         }
-        std::string best_key; size_t best_len = 0;     // 前缀：只认长度 >= 4 的别名，取最长
+        std::string best_key; size_t best_len = 0;     // prefix: only aliases of length >= 4 count, the longest wins
         for (int i = 0; i < n; ++i) {
             std::string cur;
             for (const char* p = T[i].aliases;; ++p) {

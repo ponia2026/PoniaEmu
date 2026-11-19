@@ -73,7 +73,7 @@ GamepadManager::GamepadManager(QObject* parent)
     connect(m_backend, &GamepadManagerBackend::axisChanged,
             this, &GamepadManager::bkOnAxisChanged);
 
-    // 安卓版也走 SDL，手柄按键由这里转成界面导航（遥控器仍走系统按键事件）
+    // The Android build also goes through SDL; gamepad buttons are turned into UI navigation here (remote controls still use system key events)
     connect(m_backend, &GamepadManagerBackend::buttonChanged,
             &padbuttonnav, &GamepadButtonNavigation::onButtonChanged);
     connect(m_backend, &GamepadManagerBackend::axisChanged,

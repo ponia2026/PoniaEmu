@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 下端操作提示：一整块米色圆角矩形，里面横排「图示 + 文字」
-// icon 可为：dpad_lr / dpad_ud（十字键，左右或上下塗黑）、dot_up/right/down/left（四点键）、l1r1（两个肩键小方块）
+// Hints at the bottom: one beige rounded rectangle with "icon + text" items in a row
+// icon can be: dpad_lr / dpad_ud (D-pad with left-right or up-down filled black), dot_up/right/down/left (four-dot pad), l1r1 (two small shoulder-button squares)
 import QtQuick 2.15
 
 Rectangle {
@@ -24,7 +24,7 @@ Rectangle {
                 spacing: 4
                 anchors.verticalCenter: parent.verticalCenter
 
-                // 肩键
+                // shoulder buttons
                 Row {
                     visible: modelData.icon === "l1r1"
                     anchors.verticalCenter: parent.verticalCenter
@@ -45,7 +45,7 @@ Rectangle {
                         }
                     }
                 }
-                // 其余图示
+                // the other icons
                 Image {
                     visible: modelData.icon !== "l1r1"
                     anchors.verticalCenter: parent.verticalCenter

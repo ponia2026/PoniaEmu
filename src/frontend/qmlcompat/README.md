@@ -1,46 +1,46 @@
-# Qt 5 主题兼容模块
+# Qt 5 theme compatibility modules
 
-PoniaFE 基于 Qt 6，但现有的 Pegasus 主题（包括天马G）都是为 Qt 5 写的。
-这里的模块打包进 `qrc:/qmlcompat`，并加在 QML 导入路径的最前面，
-让这些主题**不用修改**就能在 Qt 6 下加载。
+The PoniaFE frontend is based on Qt 6, but the existing Pegasus themes (including the Pegasus G themes) were all written for Qt 5.
+The modules here are packed into `qrc:/qmlcompat` and put first in the QML import path,
+so that these themes load under Qt 6 **without any change**.
 
 ## QtGraphicalEffects
 
-Qt 6 把它改名为 `Qt5Compat.GraphicalEffects`。`qmldir` 只有一行 `import`，
-把旧模块名转发过去。
+Qt 6 renamed it to `Qt5Compat.GraphicalEffects`. The `qmldir` has a single `import` line that
+forwards the old module name to the new one.
 
-注意不能写成 `import Qt5Compat.GraphicalEffects auto`：Qt 6.4 下第二个
-文件再导入时会报 `version 1.0 is not installed`。
+Do not write it as `import Qt5Compat.GraphicalEffects auto`: under Qt 6.4 the second
+file that imports it again reports `version 1.0 is not installed`.
 
 ## QtMultimedia
 
-Qt 6 的 QtMultimedia 对 `import QtMultimedia 5.x` 只导出 `Video`，
-`SoundEffect`、`MediaPlayer`、`VideoOutput` 只有 6.0 版本；`Audio`、
-`Playlist`、`PlaylistItem` 则已经删除。
+For `import QtMultimedia 5.x`, the QtMultimedia of Qt 6 only exports `Video`;
+`SoundEffect`, `MediaPlayer` and `VideoOutput` only exist as version 6.0; `Audio`,
+`Playlist` and `PlaylistItem` have been removed.
 
-这里用一份替代的 `qmldir` 顶替系统的 QtMultimedia：
+A replacement `qmldir` takes the place of the system QtMultimedia:
 
-- 仍然加载系统真正的插件 `quickmultimediaplugin`，所以 Qt 6 的类型
-  （`import QtMultimedia` 或 `6.x`）完全不受影响；插件所在目录由
-  `FrontendLayer` 通过 `addPluginPath()` 加入
-- `Video 6.0` 指向插件自带资源里的原版 `Video.qml`
-- 额外提供 5.0 版本的 Qt 5 API，用 Qt 6 的 `MediaPlayer` + `AudioOutput` 实现：
+- It still loads the real system plugin `quickmultimediaplugin`, so the Qt 6 types
+  (`import QtMultimedia` or `6.x`) are not affected at all; the directory of the plugin is added by
+  `FrontendLayer` through `addPluginPath()`
+- `Video 6.0` points to the original `Video.qml` in the resources of the plugin
+- It also provides the Qt 5 API as version 5.0, implemented with the `MediaPlayer` + `AudioOutput` of Qt 6:
 
-| Qt 5 类型 | 实现文件 | 说明 |
+| Qt 5 type | Implementation | Notes |
 |---|---|---|
-| `Audio`、`MediaPlayer` | `Qt5Player.qml` | Qt 5 里两者是同一个类型；支持 `playlist`、`autoPlay`、`loops` 等 |
-| `Playlist`、`PlaylistItem` | `Playlist.qml`、`PlaylistItem.qml` | 支持 Sequential/Loop/Random 等播放模式与 `shuffle()` |
-| `Video` | `Qt5Video.qml` | 在 Qt 6 `VideoOutput` 上加回 `playlist`、`autoLoad` 等 |
-| `VideoOutput` | `Qt5VideoOutput.qml` | Qt 5 写法是 `source: player`，这里反过来设置播放器的输出 |
-| `SoundEffect` | `Qt5SoundEffect.qml` | API 没变，只是补上 5.0 版本 |
+| `Audio`, `MediaPlayer` | `Qt5Player.qml` | In Qt 5 these are the same type; supports `playlist`, `autoPlay`, `loops` and more |
+| `Playlist`, `PlaylistItem` | `Playlist.qml`, `PlaylistItem.qml` | Supports play modes such as Sequential/Loop/Random and `shuffle()` |
+| `Video` | `Qt5Video.qml` | Adds `playlist`, `autoLoad` and more back on top of the Qt 6 `VideoOutput` |
+| `VideoOutput` | `Qt5VideoOutput.qml` | Qt 5 writes `source: player`; here it is the other way round, the output of the player is set |
+| `SoundEffect` | `Qt5SoundEffect.qml` | The API did not change, only version 5.0 is added |
 
-已知差异：
+Known differences:
 
-- QML 枚举不能为负数，`MediaPlayer.Infinite`/`Audio.Infinite` 用一个大数代替，
-  `loops` 为负数也一律当作无限循环
-- `audioRole`、`flushMode` 在 Qt 6 没有对应功能，设置后不起作用
+- QML enums cannot be negative, so `MediaPlayer.Infinite`/`Audio.Infinite` use a large number instead,
+  and a negative `loops` is always treated as an endless loop
+- `audioRole` and `flushMode` have no counterpart in Qt 6; setting them has no effect
 
-## 不在兼容范围内
+## Not covered
 
-- 主题里内联 GLSL 的 `ShaderEffect`：Qt 6 只接受预编译的 `.qsb` 着色器，
-  这类效果需要逐个主题修改（例：天马G Ginis 的 `Components/Background.qml`）
+- `ShaderEffect` with inline GLSL in a theme: Qt 6 only accepts precompiled `.qsb` shaders,
+  so such effects have to be changed theme by theme (example: `Components/Background.qml` of the Pegasus G theme Ginis)

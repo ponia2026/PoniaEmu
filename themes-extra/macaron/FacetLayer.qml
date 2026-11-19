@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 一层「马卡龙三角格底图」：不透明的多边形色块，用 Canvas 一次画好（不是几百个 Item）。
-// 图样与参数来自 systems.js 的 FACET（由 facet_tool.html 调出）；offsetX/offsetY 决定取图层空间的哪一块。
+// One layer of the "macaron triangle-grid background": opaque polygon patches, drawn at once on a Canvas (not hundreds of Items).
+// The pattern and the parameters come from FACET in systems.js (tuned with facet_tool.html); offsetX/offsetY decide which part of the layer space is taken.
 import QtQuick 2.15
 import "systems.js" as Sys
 
@@ -10,7 +10,7 @@ Item {
     property var desc: null
     property real offsetX: 0
     property real offsetY: 0
-    property real texScale: 2          // 画布分辨率倍率（1080p 屏幕下仍然清晰）
+    property real texScale: 2          // canvas resolution scale (still sharp on a 1080p screen)
 
     readonly property string baseHex: desc ? desc.base : "#EE8D87"
     readonly property string darkHex: desc ? desc.dark : "#D96A66"
@@ -40,7 +40,7 @@ Item {
                     if (y < miny) miny = y;
                     if (y > maxy) maxy = y;
                 }
-                // 不在可见范围的多边形略过
+                // skip polygons outside the visible area
                 if (maxx < fl.offsetX - 4 || minx > fl.offsetX + fl.width + 4 || maxy < fl.offsetY - 4 || miny > fl.offsetY + fl.height + 4)
                     continue;
                 var c = Sys.facetFill(p.tone, fl.baseHex, fl.darkHex);

@@ -339,13 +339,13 @@ GamepadManagerSDL2::GamepadManagerSDL2(QObject* parent)
 void GamepadManagerSDL2::start(const backend::CliArgs& args)
 {
 #ifdef Q_OS_ANDROID
-    // 关闭 HIDAPI：它需要 SDLActivity 的 HIDDeviceManager；安卓下走系统 InputDevice 路径即可
+    // Turn HIDAPI off: it needs the HIDDeviceManager of SDLActivity; on Android the system InputDevice path is enough
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
-    // Qt 没有 SDL 窗口，SDL 会当成「没有焦点」而丢弃按键事件，必须允许背景事件
+    // Qt has no SDL window, so SDL treats it as "no focus" and drops key events; background events must be allowed
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 #endif
 #ifdef Q_OS_ANDROID
-    // 安卓上从游戏回来时 stop() 没有真正退出 SDL（见下），只需恢复轮询并丢弃暂停期间积压的按键事件
+    // After coming back from a game on Android, stop() did not really quit SDL (see below), so only resume polling and drop the key events queued while paused
     if (SDL_WasInit(SDL_INIT_JOYSTICK)) {
         SDL_FlushEvents(SDL_JOYAXISMOTION, SDL_JOYBUTTONUP);
         SDL_FlushEvents(SDL_CONTROLLERAXISMOTION, SDL_CONTROLLERBUTTONUP);
@@ -375,9 +375,9 @@ void GamepadManagerSDL2::stop()
     // Make sure the polling stops before the devices disappear
     m_poll_timer.stop();
 #ifdef Q_OS_ANDROID
-    // 不要退出 SDL：SDL 的安卓 Java 端（SDLJoystickHandler）记着「已登记的手柄」，
-    // 子系统退出再初始化后它不会重新登记，导致从 RetroArch 回来手柄全部失效。
-    // 保持 SDL 在后台运行即可，已打开的手柄对象也保留。
+    // Do not quit SDL: the Android Java side of SDL (SDLJoystickHandler) remembers the "registered gamepads",
+    // and after the subsystem quits and is initialised again it does not register them again, so all gamepads stop working after coming back from a game.
+    // Keep SDL running in the background; the opened gamepad objects are kept too.
     return;
 #endif
     m_iid_to_idx.clear();

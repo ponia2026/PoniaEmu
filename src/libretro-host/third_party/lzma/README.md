@@ -1,7 +1,7 @@
-# LZMA SDK（只含 7z 解码端）
+# LZMA SDK (7z decoder only)
 
-- 版本：LZMA SDK 19.00（2019-02-02），作者 Igor Pavlov，**公有领域（Public domain）**。
-- 来源：libretro-common 随附的副本（`libretro-common/src/7zip/`，型别已改为 stdint），取自 ES4All 的建置树。
-- 只保留解码所需档案（7zArcIn/7zDec/7zFile/7zStream、LzmaDec/Lzma2Dec、Bcj2/Bra/Delta、CRC）；不含压缩端（LzFind/LzmaEnc）与 PPMd。
-- 使用处：`../../archive.cpp`（7z 读取）。编译定义 `_7ZIP_ST`（单执行绪）。
-- 不要在这里修改程式；要升级就整批换。
+- Version: LZMA SDK 19.00 (2019-02-02) by Igor Pavlov, **public domain**.
+- Source: the copy shipped with libretro-common (`libretro-common/src/7zip/`, types changed to stdint), taken from the build tree of ES4All.
+- Only the files needed for decoding are kept (7zArcIn/7zDec/7zFile/7zStream, LzmaDec/Lzma2Dec, Bcj2/Bra/Delta, CRC); the encoder side (LzFind/LzmaEnc) and PPMd are not included.
+- Used by: `../../archive.cpp` (7z reading). Compile definition `_7ZIP_ST` (single thread).
+- Do not edit the code here; to upgrade, replace the whole set.

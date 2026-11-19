@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 系统页（v0.2 设计）：静态低多边形底图 + 景深轮播。中央一张大圆角磨砂卡，左右依距离缩小、变淡、微转。
-// 设计稿坐标 960×540；上下栏（44 / 56）由 theme.qml 叠在上面（半透明，融入底图）。
+// System page (v0.2 design): static low-poly background + depth-of-field carousel. A large rounded frosted card in the centre; the cards on both sides shrink, fade and turn slightly with distance.
+// Design coordinates 960x540; the top and bottom bars (44 / 56) are laid over it by theme.qml (translucent, blending into the background).
 import QtQuick 2.15
 import "systems.js" as Sys
 
@@ -10,12 +10,12 @@ Item {
     width: 960
     height: 540
 
-    property var items: []               // 全部机种描述（已排序、已套用搜寻）
-    property int pos: 0                  // 目前选中的位置
+    property var items: []               // all system descriptions (sorted, search applied)
+    property int pos: 0                  // currently selected position
     property int gamesCount: 0
     property int favCount: 0
     property int allCount: 0
-    property var catTexts: ({})          // cat -> 已翻译类别名
+    property var catTexts: ({})          // cat -> translated category name
     property string allText: ""
     property string favText: ""
     property string fontRound: "Varela Round"
@@ -24,7 +24,7 @@ Item {
 
     readonly property int n: items.length
 
-    // 展开（不取模）的位置：pos 换到另一端时走最短路径，轮播才会平顺滑过去
+    // unwrapped (non-modulo) position: when pos jumps to the other end it takes the shortest path, so that the carousel slides smoothly
     property real track: 0
     property int _lastPos: 0
     onPosChanged: {
@@ -38,7 +38,7 @@ Item {
     property real anim: track
     Behavior on anim { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
 
-    // ---- 底图 ----
+    // ---- background ----
     Image {
         anchors.fill: parent
         source: "assets/images/ponia_bg_light.png"
@@ -46,7 +46,7 @@ Item {
         asynchronous: true
         smooth: true
     }
-    // ---- 反光地板：卡片下方一条横向亮带（设计稿）----
+    // ---- reflective floor: a horizontal bright band below the cards (design draft) ----
     Rectangle {
         x: 0; y: 370; width: 960; height: 120
         gradient: Gradient {
@@ -57,21 +57,21 @@ Item {
         }
     }
 
-    // ---- 轮播 ----
+    // ---- carousel ----
     Repeater {
-        model: view.n > 0 ? 5 : 0     // 只做中央±2 张：再外面几乎看不到（opacity<0.15），省 GPU（电视盒很吃紧）
+        model: view.n > 0 ? 5 : 0     // only the centre +-2 cards: further out they are almost invisible (opacity<0.15); saves GPU (TV boxes are tight on it)
         delegate: Item {
             id: card
-            readonly property int k: Math.round(view.anim) + (index - 2)                 // 展开位置
-            readonly property real d: k - view.anim                                       // 离中心的距离（连续）
+            readonly property int k: Math.round(view.anim) + (index - 2)                 // unwrapped position
+            readonly property real d: k - view.anim                                       // distance from the centre (continuous)
             readonly property real ad: Math.abs(d)
             readonly property var desc: view.items[((k % view.n) + view.n) % view.n]
             readonly property color accent: desc ? desc.base : "#888888"
-            readonly property real foc: Math.max(0, 1 - ad)                             // 1＝正中
+            readonly property real foc: Math.max(0, 1 - ad)                             // 1 = exactly in the centre
             readonly property color accentC: Qt.color(card.accent)
             readonly property real lum: 0.299 * accentC.r + 0.587 * accentC.g + 0.114 * accentC.b
             readonly property real sat: Math.max(accentC.r, accentC.g, accentC.b) - Math.min(accentC.r, accentC.g, accentC.b)
-            // 灰阶的机种色（街机深灰、PSP 黑银等）光晕收敛，避免脏灰一团；有彩度的照常发光
+            // the glow of grey-scale system colours (dark grey arcade, black-silver PSP, ...) is toned down to avoid a dirty grey blob; colours with saturation glow as usual
             readonly property real glowStrength: sat < 0.15 ? (lum < 0.45 ? 0.22 : 0.40) : 0.85
 
             width: 276; height: 360
@@ -82,8 +82,8 @@ Item {
             z: 100 - ad * 10
             visible: ad < 3.2 && desc
 
-            // 透视转向（设计稿：侧卡靠中央那一边较高、外侧较矮）。Rotation 没有透视，这里自己组 4x4：
-            // 绕 Y 轴转 θ 后做透视除法（视距 D），再移回卡片中心。
+            // Perspective turn (design draft: the side card is taller on the side near the centre and shorter outside). Rotation has no perspective, so we build the 4x4 ourselves:
+            // rotate by theta around the Y axis, do the perspective divide (view distance D), then move back to the card centre.
             readonly property real theta: Math.max(-1, Math.min(1, d)) * 22 * Math.PI / 180
             transform: Matrix4x4 {
                 readonly property real s: Math.sin(card.theta)
@@ -97,16 +97,16 @@ Item {
                                      s / dist,          0, 0, 1 - cx * s / dist)
             }
 
-            // 地板反光：卡片正下方一圈带机种色的柔光（卡片在它前面，只露出下缘）。
-            // 光晕一律用预先烘好的 PNG（assets/glow/<机种键>.png），不在执行期用 Canvas 重画——
-            // 切换机种时重画 Canvas 是卡顿的主因。
+            // floor reflection: a soft glow in the system colour right below the card (the card is in front of it, only the lower edge shows).
+            // The glow always uses a pre-baked PNG (assets/glow/<system key>.png) and is never redrawn with a Canvas at run time -
+            // redrawing a Canvas when switching systems was the main cause of stutter.
             Image {
                 x: -card.width * 0.10; y: card.height - 30; width: card.width * 1.2; height: 70
                 source: card.desc ? "assets/glow/" + card.desc.icon + ".png" : ""
                 opacity: 0.35 * (0.4 + card.foc * 0.6)
                 smooth: true
             }
-            // 阴影（很淡：设计稿的卡片几乎是浮在地板上）
+            // shadow (very light: in the design draft the card almost floats on the floor)
             Repeater {
                 model: 3
                 Rectangle {
@@ -114,16 +114,16 @@ Item {
                     radius: 36 + index * 4; color: Qt.rgba(0.24, 0.22, 0.2, (0.035 - index * 0.009) * (0.4 + card.foc * 0.6))
                 }
             }
-            // 镜面玻璃卡（四角对称圆角）
+            // mirror-glass card (symmetric rounded corners)
             GlassCard { anchors.fill: parent; radius: 36; tint: card.accent; strength: 0.8 + 0.2 * card.foc }
 
-            // 机种色渲染光晕：在图标后面（取代原本的色块），光心偏上
+            // system-colour glow behind the icon (replaces the old colour block), light centre slightly above the middle
             Image {
                 x: (parent.width - width) / 2; y: 112 - height / 2; width: 230; height: 190
                 source: card.desc ? "assets/glow/" + card.desc.icon + ".png" : ""
                 smooth: true
             }
-            // 机种线稿图标
+            // system line-art icon
             Image {
                 x: (parent.width - width) / 2; y: 28 + (168 - height) / 2
                 width: 196 * (card.desc && card.desc.iconScale ? card.desc.iconScale : 1) * (card.desc && card.desc.cicon ? 0.62 : 1); height: 168 * (card.desc && card.desc.iconScale ? card.desc.iconScale : 1) * (card.desc && card.desc.cicon ? 0.62 : 1)
@@ -132,7 +132,7 @@ Item {
                 smooth: true
             }
 
-            // 机种名（含中日韩字改用 Noto Sans）
+            // system name (CJK text uses Noto Sans)
             Text {
                 x: 8; y: 188; width: parent.width - 16; height: 44
                 horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
@@ -143,7 +143,7 @@ Item {
                 elide: Text.ElideRight
             }
 
-            // 膠囊：中央卡＝「类别 · 年份」白底 + 机种色字 + 机种色光晕；侧卡＝只写类别、机种色淡底
+            // capsules: centre card = "category · year" on white with system-colour text and glow; side cards = category only on a light system-colour background
             Rectangle {
                 id: pill
                 readonly property bool center: card.foc > 0.5
@@ -161,7 +161,7 @@ Item {
                               : Qt.tint(Qt.rgba(1, 1, 1, 0.85), Qt.rgba(card.accentC.r, card.accentC.g, card.accentC.b, 0.30))
                 border.width: 1
                 border.color: Qt.rgba(card.accentC.r, card.accentC.g, card.accentC.b, center ? 0.40 : 0.22)
-                Image {   // 机种色光晕（中央卡较明显）
+                Image {   // system-colour glow (stronger on the centre card)
                     z: -1; x: -24; y: -14; width: parent.width + 48; height: parent.height + 28
                     source: card.desc ? "assets/glow/" + card.desc.icon + ".png" : ""
                     opacity: pill.center ? 0.5 : 0.2
@@ -175,10 +175,10 @@ Item {
                 }
             }
 
-            // 统计数字列（只在中央卡淡入）：手柄 本机种游戏数 | 星 最爱数 | 叠层 全部机种总数
+            // statistics row (fades in only on the centre card): gamepad games of this system | star favourites | stack total of all systems
             StatsRow {
                 x: (parent.width - width) / 2; y: 282
-                visible: card.foc > 0.4     // 只有中央卡才建立画面
+                visible: card.foc > 0.4     // the content is only built for the centre card
                 opacity: Math.max(0, card.foc * 1.6 - 0.6)
                 games: view.gamesCount; favs: view.favCount; total: view.allCount
                 fontFamily: view.fontRound; pixel: 16; ink: "#6F757E"

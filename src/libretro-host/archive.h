@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// ZIP（zlib）与 7z（随附的 LZMA SDK 解码端）读取。
-// 很多 Libretro 核心（need_fullpath=false）自己不会解压，和 RetroArch 一样由前端先解开再交给核心。
+// Reads ZIP (zlib) and 7z (the bundled LZMA SDK decoder).
+// Many Libretro cores (need_fullpath=false) cannot unpack archives themselves; as with RetroArch, the frontend unpacks first and hands the result to the core.
 #pragma once
 
 #include <cstdint>
@@ -13,33 +13,33 @@ namespace ponia {
 enum class ArchiveKind { None, Zip, SevenZip };
 
 struct ArchiveEntry {
-    std::string name;       // 压缩包内的路径（zip 为原始位元组，通常是 UTF-8；7z 已转成 UTF-8）
-    uint64_t size = 0;      // 解压后大小
+    std::string name;       // path inside the archive (for zip the raw bytes, usually UTF-8; for 7z already converted to UTF-8)
+    uint64_t size = 0;      // size after unpacking
     bool is_dir = false;
 };
 
-// 看文件开头的魔术位元组判断（不只看副档名）；不是压缩包或打不开回 None。
+// Decided from the magic bytes at the start of the file (not only from the extension); returns None when it is not an archive or cannot be opened.
 ArchiveKind archive_kind(const std::string& path);
 
 bool archive_list(const std::string& path, std::vector<ArchiveEntry>& out, std::string& err);
 
-// 把压缩包里的一个档案整个读进内存。超过 max_bytes 或 CRC 不符会失败。
+// Read one file of the archive completely into memory. Fails when it exceeds max_bytes or the CRC does not match.
 bool archive_read(const std::string& path, const std::string& entry_name, std::vector<uint8_t>& out,
                   std::string& err, uint64_t max_bytes);
 
-// 把整个压缩包解到 dest_dir（会建立子目录；拒绝含 ".." 或绝对路径的条目）。max_total 为解压总量上限。
+// Unpack the whole archive into dest_dir (creates subdirectories; entries containing ".." or absolute paths are rejected). max_total limits the total unpacked size.
 bool archive_extract_all(const std::string& path, const std::string& dest_dir, std::string& err, uint64_t max_total);
 
-// 依核心的 valid_extensions（例 "nes|fds|unf"）挑第一个合适的档案，回传 entries 的索引；找不到回 -1。
-// 有 m3u/cue/gdi 这类「描述档」时优先选它们（多档案光碟映像要从描述档载入）。
-// valid_extensions 为空时选第一个非目录条目。
+// Pick the first suitable file by the valid_extensions of the core (for example "nes|fds|unf") and return its index in entries; -1 when none is found.
+// When there are "description files" such as m3u/cue/gdi they are preferred (multi-file disc images must be loaded from the description file).
+// When valid_extensions is empty the first entry that is not a directory is chosen.
 int archive_pick(const std::vector<ArchiveEntry>& entries, const char* valid_extensions);
 
-// 压缩包内路径正规化：反斜线改 '/'、去掉开头的 "./"；绝对路径或含 ".." 回 false（防止解到目录外）。
-// archive_extract_all 写出的路径就是这样正规化后的名字。
+// Normalise a path inside an archive: backslashes become '/', a leading "./" is removed; absolute paths or paths containing ".." return false (prevents unpacking outside the directory).
+// This is the normalised name that archive_extract_all writes.
 bool archive_safe_path(std::string& name);
 
-// rm -rf（用来清掉暂存的解压目录）。路径不存在算成功。
+// rm -rf (used to clean the staging directory of the unpacked files). A path that does not exist counts as success.
 bool remove_tree(const std::string& path);
 
 }  // namespace ponia

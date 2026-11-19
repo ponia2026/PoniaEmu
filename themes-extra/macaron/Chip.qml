@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 搜寻条件小标签：放大镜图示（自己画，不依赖字体字形）+ 关键字
+// Small tag of a search condition: magnifier icon (drawn by ourselves, independent of font glyphs) + keyword
 import QtQuick 2.15
 
 Rectangle {

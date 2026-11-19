@@ -81,7 +81,7 @@
         <file>menu/settings/AndroidSafEditor.qml</file>
         <file>menu/settings/common/SimpleShade.qml</file>
     </qresource>
-    <!-- 安卓版：外掛的文件名不同（libqml_QtMultimedia_quickmultimediaplugin_*.so），qmldir 单独一份 -->
+    <!-- Android build: the plugin file names differ (libqml_QtMultimedia_quickmultimediaplugin_*.so), so qmldir has a separate copy -->
     <qresource prefix="/qmlcompat-android">
         <file alias="QtMultimedia/qmldir">qmlcompat/QtMultimedia/qmldir.android</file>
         <file alias="QtMultimedia/Playlist.qml">qmlcompat/QtMultimedia/Playlist.qml</file>

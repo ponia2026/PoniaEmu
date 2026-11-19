@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 统计数字列（无框、无文字标签）：[手柄] 本机种游戏数 ｜ [星] 本机种最爱数 ｜ [叠层] 全部机种游戏总数
-// 数字一律半型（不套千分位逗号），图示用 PNG。
+// Statistics row (no frame, no text labels): [gamepad] games of this system | [star] favourites of this system | [stack] games of all systems
+// Numbers always use half-width digits (no thousands separator); icons are PNG.
 import QtQuick 2.15
 
 Row {

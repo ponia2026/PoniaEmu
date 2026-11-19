@@ -9,8 +9,8 @@ pegasus_require_qt(COMPONENTS
 
 # Find TS files, compile them to QM and generate a QRC file collecting them
 
-# 只收录 Ponia 指定的语言（英文是源码语言，Locales 会自动补上 en）：zh、zh-TW、es、pt-BR、ru、ja、fr、de。
-# 其余天马原有的 .ts 留在 lang/ 但不编进去（主题与新字串没有那些翻译，列在菜单里只会混着英文）。
+# Only the languages chosen by Ponia are included (English is the source language and Locales adds en automatically): zh, zh-TW, es, pt-BR, ru, ja, fr, de.
+# The other .ts files from Pegasus stay in lang/ but are not built in (the theme and the new strings have no translations for them, so they would only show up mixed with English in the menu).
 set(PONIA_LOCALES zh zh-TW es pt-BR ru ja fr de)
 set(PEGASUS_TS_FILES)
 foreach(LOC IN LISTS PONIA_LOCALES)
@@ -66,10 +66,10 @@ if(PEGASUS_ENABLE_APNG)
 endif()
 
 if(ANDROID)
-    # 生成 APK 的 package 目录：Manifest/Java/资源 + 附带主题（放进 assets/themes，首次启动解包）
+    # Package directory of the APK: Manifest/Java/resources + bundled themes (put into assets/themes, unpacked on first launch)
     set(PEGASUS_ANDROID_PKG "${CMAKE_CURRENT_BINARY_DIR}/android-package")
     file(REMOVE_RECURSE "${PEGASUS_ANDROID_PKG}")
-    # 内建核心放在 libs/<abi>/：只带上这次编译的 ABI（32 位包不要夹带 64 位核心，反之亦然）
+    # The bundled cores go into libs/<abi>/: only the ABI of this build (a 32-bit package must not carry 64-bit cores, and vice versa)
     set(PEGASUS_OTHER_ABI_EXCLUDES)
     foreach(_abi arm64-v8a armeabi-v7a x86 x86_64)
         if(NOT _abi STREQUAL "${ANDROID_ABI}")
@@ -83,7 +83,7 @@ if(ANDROID)
 endif()
 
 if(ANDROID)
-    # Qt 6 的 androiddeployqt 自带 Gradle 模板；这里只提供 Manifest、Java 源码与资源
+    # Qt 6's androiddeployqt brings its own Gradle template; we only supply the Manifest, the Java sources and the resources
     set_target_properties(poniafe PROPERTIES
         QT_ANDROID_PACKAGE_SOURCE_DIR "${PEGASUS_ANDROID_PKG}"
         QT_ANDROID_VERSION_NAME "${PONIAFE_VERSION}"
@@ -91,8 +91,8 @@ if(ANDROID)
         QT_ANDROID_MIN_SDK_VERSION 23
         QT_ANDROID_TARGET_SDK_VERSION 33
     )
-    # 让 androiddeployqt 扫描前端 QML 与附带主题用到的 Qt QML 模块，打进 APK
-    # 内置 Libretro 播放器的原生库（PlayerActivity 载入）
+    # Let androiddeployqt scan the frontend QML and the Qt QML modules used by the bundled themes, and put them into the APK
+    # Native library of the built-in Libretro player (loaded by PlayerActivity)
     if(PEGASUS_BUILD_LIBRETRO_HOST)
         add_dependencies(poniafe ponia_player)
         set_property(TARGET poniafe APPEND PROPERTY QT_ANDROID_EXTRA_LIBS "${CMAKE_BINARY_DIR}/src/libretro-host/libponia_player.so")

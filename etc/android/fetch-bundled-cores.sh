@@ -2,22 +2,22 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Equuleus Works
 #
-# 下载「随 APK 内建」的 Libretro 核心，放进 Android 项目的 libs/arm64-v8a/，文件名要叫 lib<核心>_libretro.so
-# （APK 里的原生库必须是 lib*.so；前端与播放器都会找 lib 前缀的版本，找得到就不再询问下载）。
+# Download the Libretro cores that are bundled with the APK into the Android project's libs/arm64-v8a/. The file names must be lib<core>_libretro.so
+# (native libraries inside an APK must be named lib*.so; the frontend and the player both look for the lib-prefixed name and, when found, do not ask to download).
 #
-# 内建原则：①授权可商用（ponia_cores.h 里 noncommercial=false）②体积小。压缩后合计约 10 MB，APK 总大小仍在 40 MB 以下。
-# 不内建、首次启动才下载：非商用授权的(snes9x、genesis_plus_gx、fbneo、mame2003_plus)、很大的(flycast 17 MB、mamearcade 257 MB)。
+# Bundling rules: (1) the license allows commercial use (noncommercial=false in ponia_cores.h), (2) small size. About 10 MB compressed in total; the APK stays below 40 MB.
+# Not bundled, downloaded on first launch: cores with a non-commercial license (snes9x, genesis_plus_gx, fbneo, mame2003_plus) and very large ones (flycast 17 MB, mamearcade 257 MB).
 #
-# 用法: fetch-bundled-cores.sh [输出目录]   默认 src/app/platform/android/libs/arm64-v8a
+# Usage: fetch-bundled-cores.sh [output dir]   default: src/app/platform/android/libs/arm64-v8a
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 OUT=${1:-$HERE/../../src/app/platform/android/libs/arm64-v8a}
-ABI=${ABI:-arm64-v8a}   # 32 位用 ABI=armeabi-v7a（输出目录要另外指定）
+ABI=${ABI:-arm64-v8a}   # use ABI=armeabi-v7a for 32-bit (the output dir must then be given separately)
 BASE=https://buildbot.libretro.com/nightly/android/latest/${ABI}
 mkdir -p "$OUT"
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
-# 「下载名:APK 内名称」——mupen64plus_next 的 Android 版叫 mupen64plus_next_gles3
+# "download name:name inside the APK" - the Android build of mupen64plus_next is called mupen64plus_next_gles3
 for pair in fceumm gambatte mgba melonds mednafen_pce_fast pcsx_rearmed stella a5200 prosystem retro8 \
             yabasanshiro applewin dosbox_pure mupen64plus_next_gles3:mupen64plus_next; do
     dl=${pair%%:*}; id=${pair##*:}
@@ -27,14 +27,14 @@ for pair in fceumm gambatte mgba melonds mednafen_pce_fast pcsx_rearmed stella a
     echo "lib${id}_libretro.so  $(wc -c < "$OUT/lib${id}_libretro.so") bytes"
 done
 
-# GameCube(Dolphin 核心) 需要的 Sys 资料夹（GPL，压缩后约 3 MB）：放进 APK assets/packs/，播放器第一次跑 GC 时解到 system 目录
+# Sys folder needed by the GameCube (Dolphin core) (GPL, about 3 MB compressed): put into the APK's assets/packs/; the player unpacks it into the system directory the first time GameCube is run
 ASSETS=${2:-$HERE/../../src/app/platform/android/assets/packs}
 mkdir -p "$ASSETS"
 curl -fsSL -m 300 -o "$ASSETS/Dolphin.zip" https://buildbot.libretro.com/assets/system/Dolphin.zip
 echo "assets/packs/Dolphin.zip  $(wc -c < "$ASSETS/Dolphin.zip") bytes"
 
-# ---- fake08（Pico-8 主力核心，buildbot 没有 Android 版，需自行编译）----
-# 源码 https://github.com/jtothebell/fake-08（MIT）。NDK r25：
+# ---- fake08 (the main PICO-8 core; the buildbot has no Android build, so it must be built by yourself) ----
+# Source: https://github.com/jtothebell/fake-08 (MIT). NDK r25:
 #   cd platform/libretro/jni && ndk-build APP_ABI=arm64-v8a APP_PLATFORM=android-23
-# 产物 libs/arm64-v8a/libfake08.so（约 1.7 MB）→ 复制为 src/app/platform/android/libs/arm64-v8a/libfake08_libretro.so
-# 为什么不用 retro8：retro8 不支援 pxa 压缩卡带（Islander 等会黑屏）。
+# Output libs/arm64-v8a/libfake08.so (about 1.7 MB) -> copy it to src/app/platform/android/libs/arm64-v8a/libfake08_libretro.so
+# Why not retro8: retro8 does not support compressed (pxa) cartridges (Islander and others show a black screen).

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// Ponia.Roms/BIOS 资料夹：使用者（或安装包）把 BIOS/韧体放在 Ponia.Roms 底下的 BIOS 里，结构照 Libretro 的 system 目录
+// Ponia.Roms/BIOS folder: the user (or the installer) puts BIOS/firmware into BIOS under Ponia.Roms, with the same structure as Libretro's system directory;
 //   BIOS/fbneo/neogeo.zip    BIOS/dc/dc_boot.bin    BIOS/scph5501.bin    BIOS/applewin/*.rom ...
-// 播放器启动时把它「连结」进核心的 system 目录（连结失败才复制）；核心要写的东西（存档、快取）仍留在应用自己的目录，
-// 所以 BIOS 放在唯读的 SD 卡上也行。根目录的 *.zip（街机 BIOS 如 neogeo.zip）另外连进 fbneo/ 与 mame2003-plus/。
+// when the player starts it "links" them into the system directory of the core (copying only if linking fails); what a core writes (saves, caches) stays in the app's own directory,
+// so the BIOS can live on a read-only SD card. Top-level *.zip files (arcade BIOS such as neogeo.zip) are also linked into fbneo/ and mame2003-plus/.
 #pragma once
 #include <dirent.h>
 #include <sys/stat.h>
@@ -37,7 +37,7 @@ inline bool copy_file(const std::string& src, const std::string& dst) {
     return ok;
 }
 
-// dst -> src。dst 已是指向 src 的连结就不动；是使用者自己放的实体档也不覆盖；其余（旧连结）换新。
+// dst -> src. If dst is already a link to src it is left alone; a real file placed by the user is not overwritten; anything else (an old link) is replaced.
 inline bool link_one(const std::string& src, const std::string& dst) {
     struct stat st;
     if (::lstat(dst.c_str(), &st) == 0) {
@@ -70,7 +70,7 @@ inline bool ends_with_ci(const std::string& s, const char* suf) {
 inline int link_tree(const std::string& src, const std::string& dst, int depth) {
     int n = 0;
     for (const std::string& name : list_dir(src)) {
-        if (name[0] == '.' || ends_with_ci(name, ".md") || ends_with_ci(name, ".txt")) continue;   // README 之类不进 system 目录
+        if (name[0] == '.' || ends_with_ci(name, ".md") || ends_with_ci(name, ".txt")) continue;   // README files and the like do not go into the system directory
         const std::string s = src + "/" + name, d = dst + "/" + name;
         if (is_dir(s)) { if (depth < 5) n += link_tree(s, d, depth + 1); }
         else if (link_one(s, d)) ++n;
@@ -80,8 +80,8 @@ inline int link_tree(const std::string& src, const std::string& dst, int depth) 
 
 } // namespace bios_detail
 
-// 找 BIOS 资料夹：--bios-dir 明确指定优先；否则从游戏档所在目录往上最多 6 层，找名叫 Ponia.Roms 的那一层，
-// 用它底下的 BIOS 子目录（Ponia.Roms/BIOS）。找不到回空字串。
+// Find the BIOS folder: an explicit --bios-dir wins; otherwise go up at most 6 levels from the directory of the game file and look for the level named Ponia.Roms,
+// then use its BIOS subdirectory (Ponia.Roms/BIOS). Returns an empty string when not found.
 inline std::string find_bios_dir(const std::string& content_path, const std::string& explicit_dir) {
     using namespace bios_detail;
     if (!explicit_dir.empty() && is_dir(explicit_dir)) return explicit_dir;
@@ -93,13 +93,13 @@ inline std::string find_bios_dir(const std::string& content_path, const std::str
     return std::string();
 }
 
-// 把 bios_dir 整棵连进 system_dir；回传处理的档案数。
+// Link the whole bios_dir tree into system_dir; returns the number of files handled.
 inline int sync_bios(const std::string& bios_dir, const std::string& system_dir) {
     using namespace bios_detail;
     if (bios_dir.empty() || system_dir.empty() || !is_dir(bios_dir)) return 0;
     mkdir_p(system_dir);
     int n = link_tree(bios_dir, system_dir, 0);
-    // 根目录的 .zip（neogeo.zip、stvbios.zip…）街机核心各找各的子目录：fbneo/、mame2003-plus/ 都放一份连结
+    // Top-level .zip files (neogeo.zip, stvbios.zip ...): each arcade core looks in its own subdirectory, so put a link into both fbneo/ and mame2003-plus/
     for (const std::string& name : list_dir(bios_dir)) {
         if (!ends_with_ci(name, ".zip")) continue;
         const std::string s = bios_dir + "/" + name;
@@ -110,15 +110,15 @@ inline int sync_bios(const std::string& bios_dir, const std::string& system_dir)
     return n;
 }
 
-// mame2003_plus 的 BIOS 必须和游戏 zip 在同一个目录（rompath＝游戏所在目录）。游戏常在唯读的 SD 卡上、没法往里放，
-// 所以在 stage_dir 里放「游戏的连结＋所有 BIOS zip 的连结」，回传游戏连结的路径给核心用。失败回空字串（照原路径）。
+// The BIOS of mame2003_plus must be in the same directory as the game zip (rompath = the directory of the game). Games are often on a read-only SD card where nothing can be added,
+// so stage_dir gets "a link to the game + links to all BIOS zips", and the path of the game link is returned for the core. Returns an empty string on failure (the original path is used).
 inline std::string stage_mame_content(const std::string& content, const std::string& bios_dir, const std::string& stage_dir) {
     using namespace bios_detail;
     if (bios_dir.empty() || !ends_with_ci(content, ".zip")) return std::string();
     mkdir_p(stage_dir);
-    for (const std::string& name : list_dir(stage_dir)) ::unlink((stage_dir + "/" + name).c_str());   // 每次重建，别留上一款
+    for (const std::string& name : list_dir(stage_dir)) ::unlink((stage_dir + "/" + name).c_str());   // rebuilt every time, so nothing of the previous game stays
     int n = 0;
-    // 先放游戏所在目录的全部 zip（合并版 romset 的 clone 需要同目录的 parent），再放 BIOS（同名则 BIOS 为准）
+    // First put in all zips of the directory of the game (clones of a merged romset need their parent in the same directory), then the BIOS (on a name clash the BIOS wins)
     for (const std::string& name : list_dir(parent_of(content))) {
         const std::string s = parent_of(content) + "/" + name;
         if (ends_with_ci(name, ".zip") && !is_dir(s)) n += link_one(s, stage_dir + "/" + name) ? 1 : 0;

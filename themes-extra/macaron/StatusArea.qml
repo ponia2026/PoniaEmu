@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Equuleus Works
-// 上白条右侧：连线状态（有线 / 无线 / 离线）、电量（有电池的机器才显示）、时间。
-// 只读 api.device 里两边都可能没有的属性：缺属性时退回「无线图标 + 时间」，原版天马也能用。
+// Right side of the top white bar: connection state (wired / wireless / offline), battery (only on machines with a battery), time.
+// Only reads properties of api.device that may be missing on either side: when a property is missing it falls back to "wireless icon + time", so the original Pegasus works too.
 import QtQuick 2.15
 
 Row {
@@ -12,14 +12,14 @@ Row {
     layoutDirection: Qt.LeftToRight
 
     readonly property var dev: (typeof api !== "undefined" && api.device) ? api.device : null
-    // DeviceInfo::NetworkType：0 未知 1 离线 2 有线 3 无线 4 行动网络 5 其他；没有这个属性＝-1
+    // DeviceInfo::NetworkType: 0 unknown 1 offline 2 wired 3 wireless 4 mobile 5 other; -1 when the property is missing
     readonly property int net: (dev && dev.networkType !== undefined) ? dev.networkType : -1
-    // DeviceInfo::BatteryStatus：0 未知 1 无电池 2 放电 3 充电 4 已充满
+    // DeviceInfo::BatteryStatus: 0 unknown 1 no battery 2 discharging 3 charging 4 full
     readonly property int batt: (dev && dev.batteryStatus !== undefined) ? dev.batteryStatus : 0
     readonly property bool hasBattery: batt >= 2 && dev.batteryPercent === dev.batteryPercent
     readonly property real pct: hasBattery ? Math.max(0, Math.min(1, dev.batteryPercent)) : 0
 
-    // 连线图示
+    // connection icon
     Image {
         anchors.verticalCenter: parent.verticalCenter
         width: 22; height: 22
@@ -29,7 +29,7 @@ Row {
         sourceSize.width: 66; sourceSize.height: 66
     }
 
-    // 电量
+    // battery
     Row {
         visible: area.hasBattery
         anchors.verticalCenter: parent.verticalCenter
@@ -56,7 +56,7 @@ Row {
         }
     }
 
-    // 时间
+    // time
     Text {
         id: clock
         anchors.verticalCenter: parent.verticalCenter
