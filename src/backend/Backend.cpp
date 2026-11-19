@@ -49,6 +49,15 @@
 #include <QQmlEngine>
 #include <QTimer>
 
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+#  include <dirent.h>
+#  include <sys/ioctl.h>
+#  include <unistd.h>
+#  include <climits>
+#  include <cstdlib>
+#  include <cstring>
+#endif
+
 #if defined(WITH_SDL_GAMEPAD) || defined(WITH_SDL_POWER)
 #include <SDL.h>
 #endif
@@ -78,6 +87,36 @@ void create_config_dirs()
     android::install_bundled_themes(configDir.absoluteFilePath(QStringLiteral("themes")));
 #endif
 }
+
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+// On KMS/DRM (eglfs) the process that owns the screen is the DRM master, and tearing down the UI does not give that up.
+// A game started afterwards (the built-in player, an emulator, a port) then cannot take the screen and shows nothing.
+// So the master role is handed over explicitly: dropped before the game starts, taken back when it has ended.
+void set_drm_master(bool on)
+{
+    // DRM_IOCTL_SET_MASTER / DRM_IOCTL_DROP_MASTER (drm.h); defined here so the DRM headers are not needed to build
+    const unsigned long request = on ? _IO('d', 0x1e) : _IO('d', 0x1f);
+    DIR* dir = ::opendir("/proc/self/fd");
+    if (!dir)
+        return;
+    int handled = 0;
+    while (const dirent* entry = ::readdir(dir)) {
+        const int fd = std::atoi(entry->d_name);
+        if (fd <= 2)
+            continue;
+        char target[PATH_MAX];
+        const QByteArray link = (QStringLiteral("/proc/self/fd/") + QString::fromLatin1(entry->d_name)).toLocal8Bit();
+        const ssize_t len = ::readlink(link.constData(), target, sizeof(target) - 1);
+        if (len <= 0)
+            continue;
+        target[len] = 0;
+        if (std::strncmp(target, "/dev/dri/card", 13) == 0 && ::ioctl(fd, request) == 0)
+            ++handled;
+    }
+    ::closedir(dir);
+    Log::info(LOGMSG("DRM master %1 on %2 device(s)").arg(on ? QStringLiteral("taken") : QStringLiteral("released")).arg(handled));
+}
+#endif
 
 // On some platforms only one program can draw to the screen at a time,
 // so Pegasus must hide its frontend as soon as the game has started.
@@ -341,6 +380,10 @@ void Backend::onProcessLaunched()
 
     if (delay_sec == 0) {
         m_frontend->teardown();
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+        if (QGuiApplication::platformName() == QLatin1String("eglfs"))
+            set_drm_master(false);
+#endif
     }
     else if (delay_sec > 0) {
         Log::info(LOGMSG("Keeping the frontend visible for %1 seconds").arg(delay_sec));
@@ -362,6 +405,10 @@ void Backend::onProcessLaunched()
 void Backend::onProcessFinished()
 {
     m_hide_timer->stop();
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+    if (QGuiApplication::platformName() == QLatin1String("eglfs"))
+        set_drm_master(true);
+#endif
 
     if (m_frontend->isLoaded())
         m_frontend->bringToFront();

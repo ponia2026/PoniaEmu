@@ -16,6 +16,7 @@
 #   NO_DEPS=1        do not touch the system packages
 #   DRY_RUN=1        only print what would be done
 #   AUTOMOUNT=1|0    install (default, 1) or skip (0) the automount of external disks, see automount.sh
+#   SOUND_SERVER=1|0 install (default, 1) or skip (0) a PulseAudio server on a box that has none, see below
 #   HDMI_VOLUME=N    set the HDMI output level to N percent on boards that have a gain control (default 80, 0 = leave it alone)
 # Remove it again with:  sh install.sh --uninstall
 set -eu
@@ -86,7 +87,8 @@ if [ "${NO_DEPS:-0}" != 1 ]; then
             return 1
         }
         PKGS=""
-        for p in libsdl2-2.0-0 \
+        # libgles2/libegl1/libgbm1: the player draws through SDL on KMS/DRM and needs the GLES library; without it a game runs with sound but no picture
+        for p in libsdl2-2.0-0 libgles2 libegl1 libgbm1 \
                  libqt6core6 libqt6gui6 libqt6network6 libqt6qml6 libqt6quick6 libqt6core5compat6 \
                  libqt6sql6 libqt6sql6-sqlite libqt6svg6 qt6-svg-plugins qt6-image-formats-plugins qt6-qpa-plugins qt6-wayland libxcb-cursor0 \
                  qml6-module-qtqml qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
@@ -156,6 +158,43 @@ if [ "$HV" -gt 0 ] 2>/dev/null && command -v amixer >/dev/null 2>&1; then
         $SUDO alsactl store 2>/dev/null || true
         say "HDMI audio level set to ${HV}% (card $card, TDMOUT_${tdm})."
     done
+fi
+
+# The menus play sound through Qt Multimedia, which only talks to a PulseAudio-compatible server. A box without a desktop has
+# none, so the frontend would be silent. PulseAudio refuses to run for root as a normal session service, so on such a box it is
+# installed as a system-wide service that every local program (they all run as root there) connects to.
+if [ "${SOUND_SERVER:-1}" = 1 ] && command -v systemctl >/dev/null 2>&1 \
+   && ! systemctl is-active --quiet display-manager.service 2>/dev/null \
+   && ! systemctl is-active --quiet pipewire-pulse.service 2>/dev/null \
+   && ! command -v pipewire-pulse >/dev/null 2>&1 \
+   && [ "$(id -u)" -eq 0 -o -n "$SUDO" ]; then
+    if ! command -v pulseaudio >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then
+        say "Installing PulseAudio (sound for the frontend menus) ..."
+        $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -q pulseaudio pulseaudio-utils >/dev/null 2>&1 || say "note: PulseAudio could not be installed, skipping."
+    fi
+    if command -v pulseaudio >/dev/null 2>&1; then
+        $SUDO sed -i 's/^load-module module-native-protocol-unix$/load-module module-native-protocol-unix auth-anonymous=1/' /etc/pulse/system.pa 2>/dev/null || true
+        $SUDO mkdir -p /etc/pulse/client.conf.d
+        $SUDO tee /etc/pulse/client.conf.d/10-poniaemu.conf >/dev/null <<'EOC'
+# Programs on this box talk to the system-wide PulseAudio instance (see pulseaudio-system.service).
+default-server = unix:/var/run/pulse/native
+autospawn = no
+EOC
+        $SUDO tee /etc/systemd/system/pulseaudio-system.service >/dev/null <<'EOC'
+[Unit]
+Description=PulseAudio system-wide sound server (PoniaEmu)
+After=sound.target
+
+[Service]
+ExecStart=/usr/bin/pulseaudio --system --realtime=no --disallow-exit --daemonize=no --log-target=journal
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOC
+        $SUDO systemctl daemon-reload
+        $SUDO systemctl enable --now pulseaudio-system.service >/dev/null 2>&1 || say "note: the sound server could not be started."
+    fi
 fi
 
 command -v update-desktop-database >/dev/null 2>&1 && $SUDO update-desktop-database "$PREFIX/share/applications" >/dev/null 2>&1 || true
