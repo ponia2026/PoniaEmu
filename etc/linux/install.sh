@@ -16,6 +16,7 @@
 #   NO_DEPS=1        do not touch the system packages
 #   DRY_RUN=1        only print what would be done
 #   AUTOMOUNT=1|0    install (1) or skip (0) the automount of external disks, see automount.sh; default: install it only when no desktop runs
+#   APT_UPDATE=1|0   run apt-get update before installing the runtime packages (default, 1) or not (0)
 #   SOUND_SERVER=1|0 install (default, 1) or skip (0) a PulseAudio server on a box that has none, see below
 #   HDMI_VOLUME=N    set the HDMI output level to N percent on boards that have a gain control (default 80, 0 = leave it alone)
 # Remove it again with:  sh install.sh --uninstall
@@ -44,6 +45,10 @@ if [ "${1:-}" = "--uninstall" ]; then
         case "$f" in */) ;; *) run $SUDO rm -f "$PREFIX/$f" ;; esac
     done < "$MANIFEST"
     run $SUDO rm -f "$MANIFEST"
+    if [ -d /usr/local/share/fonts/poniaemu ]; then
+        run $SUDO rm -rf /usr/local/share/fonts/poniaemu
+        command -v fc-cache >/dev/null 2>&1 && run $SUDO fc-cache -f >/dev/null 2>&1 || true
+    fi
     say "Done. Your settings in ~/.config/poniaemu were left alone."
     exit 0
 fi
@@ -86,15 +91,16 @@ if [ "${NO_DEPS:-0}" != 1 ]; then
             done
             return 1
         }
-        # A fresh install (or a container) has no package lists yet, and then every package looks "not available".
-        # libegl1 exists in every Debian/Ubuntu release, so if even that is missing the lists are empty: update them once.
-        if ! apt-cache policy libegl1 2>/dev/null | grep -q "Candidate: [^(]"; then
-            say "The package lists are empty, updating them (apt-get update) ..."
+        # A fresh install (or a container) has no package lists yet, and then every package looks "not available";
+        # old lists can also point to packages that are gone. So refresh them first (APT_UPDATE=0 skips this).
+        # libegl1 exists in every Debian/Ubuntu release, so if even that has no candidate the lists are empty and must be updated anyway.
+        if [ "${APT_UPDATE:-1}" = 1 ] || ! apt-cache policy libegl1 2>/dev/null | grep -q "Candidate: [^(]"; then
+            say "Updating the package lists (apt-get update) ..."
             run $SUDO apt-get update || say "note: apt-get update failed, check the network and the apt sources."
         fi
         PKGS=""
         # libgles2/libegl1/libgbm1: the player draws through SDL on KMS/DRM and needs the GLES library; without it a game runs with sound but no picture
-        for p in libsdl2-2.0-0 libgles2 libegl1 libgbm1 \
+        for p in libsdl2-2.0-0 libgles2 libegl1 libgbm1 fontconfig \
                  libqt6core6 libqt6gui6 libqt6network6 libqt6qml6 libqt6quick6 libqt6core5compat6 \
                  libqt6sql6 libqt6sql6-sqlite libqt6svg6 qt6-svg-plugins qt6-image-formats-plugins qt6-qpa-plugins qt6-wayland libxcb-cursor0 \
                  qml6-module-qtqml qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
@@ -141,6 +147,17 @@ $SUDO mkdir -p "$PREFIX"
 $SUDO tar -xzf "$TMP/$FILE" -C "$PREFIX"
 $SUDO mkdir -p "$(dirname "$MANIFEST")"
 $SUDO cp "$TMP/manifest.txt" "$MANIFEST"
+
+# The program registers its fonts itself, but a system without any CJK font (a minimal Debian, a fresh Ubuntu) can show boxes for the
+# language names in the first menus. A font in the system font directory is found by every fallback lookup at any time, so also put the
+# Noto Sans CJK fonts there.
+FONT_SRC="$PREFIX/share/poniaemu/themes/macaron/assets/fonts"
+FONT_DIR="/usr/local/share/fonts/poniaemu"
+if [ -d "$FONT_SRC" ] && ls "$FONT_SRC"/NotoSansCJK-*.otf >/dev/null 2>&1; then
+    $SUDO mkdir -p "$FONT_DIR"
+    $SUDO cp "$FONT_SRC"/NotoSansCJK-*.otf "$FONT_DIR/"
+    command -v fc-cache >/dev/null 2>&1 && $SUDO fc-cache -f "$FONT_DIR" >/dev/null 2>&1 || true
+fi
 
 # Earlier test builds shipped the launcher entry, icons and metadata under the id org.ponia.PoniaFE; remove them when upgrading.
 for f in "$PREFIX/share/applications/org.ponia.PoniaFE.desktop" "$PREFIX/share/metainfo/org.ponia.PoniaFE.metainfo.xml" \
