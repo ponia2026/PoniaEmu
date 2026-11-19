@@ -36,7 +36,7 @@ QString cores_dir()
     // = getFilesDir()/cores, which PlayerActivity passes to PoniaPlay as a cores directory
     return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/cores");
 #else
-    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/poniafe/cores");
+    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QStringLiteral("/poniaemu/cores");
 #endif
 }
 
@@ -49,7 +49,7 @@ QStringList search_dirs()
     if (!env.isEmpty())
         dirs << QString::fromLocal8Bit(env);
 #ifndef Q_OS_ANDROID
-    dirs << QStringLiteral("/usr/lib/poniafe/cores") << QStringLiteral("/usr/lib/libretro");
+    dirs << QStringLiteral("/usr/lib/poniaemu/cores") << QStringLiteral("/usr/lib/libretro");
 #endif
     return dirs;
 }

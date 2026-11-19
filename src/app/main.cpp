@@ -63,9 +63,9 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
 
     QGuiApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("poniafe"));
+    app.setApplicationName(QStringLiteral("poniaemu"));
     app.setApplicationVersion(QStringLiteral(PONIA_VERSION));
-    app.setOrganizationName(QStringLiteral("poniafe"));
+    app.setOrganizationName(QStringLiteral("poniaemu"));
     app.setOrganizationDomain(QStringLiteral("ponia-frontend.org"));
     app.setWindowIcon(QIcon(QStringLiteral(":/icon.png")));
 

@@ -21,9 +21,9 @@ Open the Help screen and look at the About section. Also, have you tried the lat
 
 ### Log
 
-PoniaEmu writes a log file about the last launch. It is named `lastrun.log` and lives in the `poniafe` configuration folder:
+PoniaEmu writes a log file about the last launch. It is named `lastrun.log` and lives in the `poniaemu` configuration folder:
 
-- Linux: `~/.config/poniafe/lastrun.log`
-- Android: in the `poniafe` folder of your storage (the "no games found" screen also shows the exact path)
+- Linux: `~/.config/poniaemu/lastrun.log`
+- Android: in the `poniaemu` folder of your storage (the "no games found" screen also shows the exact path)
 
 If possible, please attach the file to this bug report.

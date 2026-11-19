@@ -39,8 +39,8 @@ using QSP = QStandardPaths;
 
 void remove_orgname(QString& str)
 {
-    const QRegularExpression replace_regex(QStringLiteral("(/poniafe){2}$"));
-    str.replace(replace_regex, QStringLiteral("/poniafe"));
+    const QRegularExpression replace_regex(QStringLiteral("(/poniaemu){2}$"));
+    str.replace(replace_regex, QStringLiteral("/poniaemu"));
 }
 
 void create_dir_if_not_exists(const QString& dir_path)
@@ -53,7 +53,7 @@ QString get_appconfig_dir()
 {
 #ifdef Q_OS_ANDROID
     const QString dir_path = QSP::writableLocation(QSP::GenericDataLocation)
-                           + QStringLiteral("/poniafe");
+                           + QStringLiteral("/poniaemu");
 #else
     QString dir_path = AppSettings::general.portable
         ? paths::app_dir_path() + QStringLiteral("/config")
@@ -126,14 +126,14 @@ const QStringList& configDirs()
             paths << QSP::standardLocations(QSP::AppDataLocation);
 
             // do not add the organization name to the search path
-            const QRegularExpression regex(QStringLiteral("(/poniafe){2}$"));
-            paths.replaceInStrings(regex, QStringLiteral("/poniafe"));
+            const QRegularExpression regex(QStringLiteral("(/poniaemu){2}$"));
+            paths.replaceInStrings(regex, QStringLiteral("/poniaemu"));
         }
 
 #ifdef Q_OS_ANDROID
         const QStringList all_roots = android::storage_paths();
         for (const QString& storage_root : all_roots) {
-            QString path = storage_root + QStringLiteral("/poniafe");
+            QString path = storage_root + QStringLiteral("/poniaemu");
             if (QFileInfo::exists(path))
                 paths << std::move(path);
         }

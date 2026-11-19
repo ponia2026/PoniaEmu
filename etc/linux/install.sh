@@ -41,7 +41,7 @@ if [ "${1:-}" = "--uninstall" ]; then
         case "$f" in */) ;; *) run $SUDO rm -f "$PREFIX/$f" ;; esac
     done < "$MANIFEST"
     run $SUDO rm -f "$MANIFEST"
-    say "Done. Your settings in ~/.config/poniafe were left alone."
+    say "Done. Your settings in ~/.config/poniaemu were left alone."
     exit 0
 fi
 

@@ -120,7 +120,7 @@ pegasus_set_installdir(INSTALL_DOCDIR "${CMAKE_INSTALL_FULL_DOCDIR}")
 pegasus_set_installdir(INSTALL_ICONDIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/icons/hicolor")
 pegasus_set_installdir(INSTALL_DESKTOPDIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/applications")
 pegasus_set_installdir(INSTALL_APPSTREAMDIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/metainfo")
-pegasus_set_installdir(INSTALL_THEMESDIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/poniafe/themes")
+pegasus_set_installdir(INSTALL_THEMESDIR "${CMAKE_INSTALL_FULL_DATAROOTDIR}/poniaemu/themes")
 
 if(INSTALL_BINDIR)
     install(TARGETS poniaemu RUNTIME DESTINATION "${INSTALL_BINDIR}" LIBRARY DESTINATION "${INSTALL_BINDIR}")

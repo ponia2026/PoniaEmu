@@ -158,7 +158,7 @@ public:
     }
 
 private:
-    static constexpr auto m_appname = "poniafe";
+    static constexpr auto m_appname = "poniaemu";
     static constexpr auto m_marker_info = "[i] ";
     static constexpr auto m_marker_warning = "[w] ";
     static constexpr auto m_marker_error = "[e] ";

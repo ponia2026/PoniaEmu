@@ -1244,7 +1244,7 @@ void write_shot() {
 
 
 // ---------- system -> core table ----------
-// System short name (matches the icon key of systems.js in the theme) -> core file name. Can be overridden by ~/.config/poniafe/cores.ini (one "system=core.so" per line).
+// System short name (matches the icon key of systems.js in the theme) -> core file name. Can be overridden by ~/.config/poniaemu/cores.ini (one "system=core.so" per line).
 // Ports are handled separately.
 
 bool file_exists(const std::string& p) { struct stat st; return ::stat(p.c_str(), &st) == 0 && S_ISREG(st.st_mode); }
@@ -1266,7 +1266,7 @@ std::string resolve_core(const std::string& system, const std::vector<std::strin
     if (!cid.empty()) file = ponia::core_file(cid);
     const char* home = std::getenv("HOME");
     if (home) {   // user override table
-        FILE* f = std::fopen((std::string(home) + "/.config/poniafe/cores.ini").c_str(), "r");
+        FILE* f = std::fopen((std::string(home) + "/.config/poniaemu/cores.ini").c_str(), "r");
         if (f) {
             char line[512];
             while (std::fgets(line, sizeof line, f)) {
@@ -1289,9 +1289,9 @@ std::string find_core_file(const std::string& file, const std::vector<std::strin
     for (auto& cd : cores_dirs) dirs.push_back(cd);
     if (const char* e = std::getenv("PONIA_CORES_DIR")) dirs.push_back(e);
     dirs.push_back(exe_dir() + "/cores");
-    dirs.push_back(exe_dir() + "/../lib/poniafe/cores");
-    if (home) dirs.push_back(std::string(home) + "/.config/poniafe/cores");
-    dirs.push_back("/usr/lib/poniafe/cores");
+    dirs.push_back(exe_dir() + "/../lib/poniaemu/cores");
+    if (home) dirs.push_back(std::string(home) + "/.config/poniaemu/cores");
+    dirs.push_back("/usr/lib/poniaemu/cores");
     dirs.push_back("/usr/lib/libretro");
     for (auto& d : dirs) {
         if (file_exists(d + "/" + file)) return d + "/" + file;
