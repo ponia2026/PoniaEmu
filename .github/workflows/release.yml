@@ -1,0 +1,200 @@
+name: Release
+
+# Builds the Android APKs (64-bit and 32-bit) and publishes them as a GitHub release.
+#   - Push a tag like v1.0.0, or
+#   - Run the workflow by hand ("Run workflow"). Fill in "tag" to publish a release from that run;
+#     leave it empty to only build and keep the APKs as workflow artifacts.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (for example v1.0.0). Leave empty to only build.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  QT_VERSION: '6.4.2'
+  NDK_VERSION: '25.1.8937393'
+  SDL_VERSION: '2.30.9'
+  FAKE08_COMMIT: '814991a'
+
+jobs:
+  android:
+    name: Android ${{ matrix.abi }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            qt_arch: android_arm64_v8a
+            suffix: ''
+          - abi: armeabi-v7a
+            qt_arch: android_armv7
+            suffix: _v7a
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install host packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build zip unzip libgl1-mesa-dev libxkbcommon-dev
+
+      - name: Cache Qt
+        id: qt-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/Qt
+          key: qt-${{ env.QT_VERSION }}-${{ matrix.qt_arch }}-v1
+
+      - name: Install Qt (host and Android kit)
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: |
+          pip install aqtinstall
+          MODS="qt5compat qtmultimedia qtshadertools qtquicktimeline qtimageformats"
+          python -m aqt install-qt linux desktop "$QT_VERSION" gcc_64 -m $MODS -O "$HOME/Qt"
+          python -m aqt install-qt linux android "$QT_VERSION" "${{ matrix.qt_arch }}" -m $MODS -O "$HOME/Qt"
+
+      - name: Install Android SDK and NDK
+        run: |
+          SDKM="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses >/dev/null || true
+          "$SDKM" "ndk;$NDK_VERSION" "platforms;android-33" "build-tools;33.0.2"
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          mkdir -p ~/.android
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > ~/.android/debug.keystore
+          else
+            echo "No ANDROID_KEYSTORE_B64 secret: generating a throw-away key (APKs from different runs will not upgrade over each other)."
+            keytool -genkeypair -keystore ~/.android/debug.keystore -storepass android -keypass android \
+              -alias androiddebugkey -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          fi
+
+      - name: Cache SDL2
+        id: sdl-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/sdl2-${{ matrix.abi }}
+          key: sdl2-${{ env.SDL_VERSION }}-${{ matrix.abi }}-api23-v1
+
+      - name: Build SDL2
+        if: steps.sdl-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o /tmp/sdl.tar.gz "https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/SDL2-${SDL_VERSION}.tar.gz"
+          tar -xzf /tmp/sdl.tar.gz -C /tmp
+          cmake -S "/tmp/SDL2-${SDL_VERSION}" -B /tmp/sdl-build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI="${{ matrix.abi }}" -DANDROID_PLATFORM=android-23 \
+            -DCMAKE_BUILD_TYPE=Release -DSDL_TEST=OFF \
+            -DCMAKE_INSTALL_PREFIX="$HOME/sdl2-${{ matrix.abi }}"
+          cmake --build /tmp/sdl-build
+          cmake --install /tmp/sdl-build
+
+      - name: Get the bundled Libretro cores
+        run: |
+          ABI="${{ matrix.abi }}" etc/android/fetch-bundled-cores.sh "src/app/platform/android/libs/${{ matrix.abi }}"
+
+      - name: Build the fake-08 core (PICO-8)
+        run: |
+          git clone https://github.com/jtothebell/fake-08.git /tmp/fake-08
+          cd /tmp/fake-08
+          git checkout "$FAKE08_COMMIT"
+          git submodule update --init --recursive
+          cd platform/libretro/jni
+          "$ANDROID_NDK_ROOT/ndk-build" -j"$(nproc)" APP_ABI="${{ matrix.abi }}" APP_PLATFORM=android-23
+          cp "../libs/${{ matrix.abi }}/libfake08.so" \
+             "$GITHUB_WORKSPACE/src/app/platform/android/libs/${{ matrix.abi }}/libfake08_libretro.so"
+
+      - name: Configure
+        run: |
+          QT_ANDROID="$HOME/Qt/$QT_VERSION/${{ matrix.qt_arch }}"
+          QT_HOST="$HOME/Qt/$QT_VERSION/gcc_64"
+          SDL="$HOME/sdl2-${{ matrix.abi }}"
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$QT_ANDROID/lib/cmake/Qt6/qt.toolchain.cmake" \
+            -DQT_HOST_PATH="$QT_HOST" -DQT_HOST_PATH_CMAKE_DIR="$QT_HOST/lib/cmake" \
+            -DANDROID_ABI="${{ matrix.abi }}" -DANDROID_PLATFORM=android-23 \
+            -DANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" -DANDROID_NDK_ROOT="$ANDROID_NDK_ROOT" \
+            -DQT_ANDROID_ABIS="${{ matrix.abi }}" -DQT_ANDROID_BUILD_ALL_ABIS=FALSE \
+            -DSDL2_DIR="$SDL/lib/cmake/SDL2" -DCMAKE_FIND_ROOT_PATH="$SDL" \
+            -DPEGASUS_ENABLE_LTO=OFF
+
+      - name: Build
+        run: |
+          cmake --build build --target ponia_player
+          cmake --build build --target poniafe_make_apk
+
+      - name: Repack, sign and name the APK
+        run: |
+          mkdir -p dist
+          NAME="$(sh etc/android/apk-name.sh build '${{ matrix.suffix }}')"
+          sh etc/android/repack-apk.sh \
+            build/src/app/android-build/build/outputs/apk/debug/android-build-debug.apk \
+            "dist/$NAME"
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ matrix.abi }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: android
+    if: github.event_name == 'push' || inputs.tag != ''
+    runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: apk-*
+          merge-multiple: true
+
+      - name: Create or update the release
+        run: |
+          cd dist
+          sha256sum *.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          cd ..
+          VERSION="${TAG#v}"
+          cat > notes.md <<EOF
+          ## PoniaEmu ${VERSION}
+
+          A game launcher with a built-in Libretro player (PoniaPlay). No RetroArch required.
+
+          | File | For |
+          | --- | --- |
+          | \`*_v7a.apk\` | 32-bit Android (armeabi-v7a), Android 6.0 or newer |
+          | the other \`.apk\` | 64-bit Android (arm64-v8a), Android 6.0 or newer |
+
+          The APKs are signed with a development key, not a Play Store key. Check \`SHA256SUMS.txt\` after downloading.
+          Games and BIOS files are not included. See the README for supported systems and setup.
+          EOF
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" --title "PoniaEmu ${VERSION}" --notes-file notes.md
+          fi
