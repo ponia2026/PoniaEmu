@@ -118,5 +118,5 @@ $SUDO cp "$TMP/manifest.txt" "$MANIFEST"
 
 command -v update-desktop-database >/dev/null 2>&1 && $SUDO update-desktop-database "$PREFIX/share/applications" >/dev/null 2>&1 || true
 say ""
-say "Installed. Start it with:  poniafe"
+say "Installed. Start it with:  poniaemu"
 say "Games and BIOS files are not included, see the README for where to put them."

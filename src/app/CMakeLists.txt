@@ -55,6 +55,12 @@ pegasus_add_common_props_optimized(poniafe)
 # TODO: Workaround for asset differences for now
 target_compile_definitions(poniafe PRIVATE PEGASUS_USING_CMAKE)
 
+if(NOT ANDROID)
+    # The product is called PoniaEmu, so the desktop executable is `poniaemu`.
+    # The CMake target keeps its old name, which the Android packaging still uses.
+    set_target_properties(poniafe PROPERTIES OUTPUT_NAME poniaemu)
+endif()
+
 if(PEGASUS_ENABLE_APNG)
     target_compile_definitions(poniafe PUBLIC WITH_APNG_SUPPORT)
 endif()
