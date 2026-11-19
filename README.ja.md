@@ -57,8 +57,8 @@ PoniaEmu は [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend) を
 
 | プラットフォーム | アーキテクチャ | 備考 |
 | --- | --- | --- |
-| Android | 64 ビット (`arm64-v8a`)、32 ビット (`armeabi-v7a`) | Android 6.0 (API 23) 以降。タッチ画面、ゲームパッド、テレビのリモコンで操作できます。 |
-| Linux | 64 ビット、32 ビット | X11、Wayland、またはフレームバッファ (KMS/DRM) 上で直接動作します。`poniaplay` 実行ファイルはフロントエンドと同じ場所にインストールされます。 |
+| Android | ARM 64 ビット (`arm64-v8a`)、ARM 32 ビット (`armeabi-v7a`) | Android 6.0 (API 23) 以降。タッチ画面、ゲームパッド、テレビのリモコンで操作できます。 |
+| Linux | x86_64 (64 ビット PC)、ARM 64 ビット (`arm64`)、ARM 32 ビット (`armhf`) | X11、Wayland、またはフレームバッファ (KMS/DRM) 上で直接動作します。`poniaplay` 実行ファイルはフロントエンドと同じ場所にインストールされます。 |
 
 Dolphin には ARM32 向けの JIT がないため、32 ビット ARM では GameCube のコアは使えません。
 
@@ -103,7 +103,7 @@ sudo cmake --install build
 | `PEGASUS_ENABLE_LTO` | `ON` | リンク時最適化 (ビルドは遅くなりますが、実行は速くなります)。 |
 | `PEGASUS_STATIC_CXX` | `OFF` | C++ ランタイムを静的にリンクします。 |
 
-32 ビット Linux 向けにビルドするときは、同じ手順で 32 ビットのツールチェーンを使います (または 32 ビットのシステム上で行います)。
+ARM (`arm64` または `armhf`) 向けは、同じ手順で、対象向けのクロスコンパイル用ツールチェーンファイルを指定するか、機器上で直接ビルドします。
 
 ### Android
 

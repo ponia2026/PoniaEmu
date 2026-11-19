@@ -57,8 +57,8 @@ Remarques :
 
 | Plateforme | Architectures | Remarques |
 | --- | --- | --- |
-| Android | 64 bits (`arm64-v8a`), 32 bits (`armeabi-v7a`) | Android 6.0 (API 23) ou plus récent. Fonctionne avec un écran tactile, une manette ou une télécommande de TV. |
-| Linux | 64 bits, 32 bits | Fonctionne sous X11, Wayland ou directement sur le framebuffer (KMS/DRM). L'exécutable `poniaplay` est installé à côté du frontend. |
+| Android | ARM 64 bits (`arm64-v8a`), ARM 32 bits (`armeabi-v7a`) | Android 6.0 (API 23) ou plus récent. Fonctionne avec un écran tactile, une manette ou une télécommande de TV. |
+| Linux | x86_64 (PC 64 bits), ARM 64 bits (`arm64`), ARM 32 bits (`armhf`) | Fonctionne sous X11, Wayland ou directement sur le framebuffer (KMS/DRM). L'exécutable `poniaplay` est installé à côté du frontend. |
 
 Le cœur GameCube n'est pas disponible sur ARM 32 bits, car Dolphin n'a pas de JIT ARM32.
 
@@ -103,7 +103,7 @@ Options utiles :
 | `PEGASUS_ENABLE_LTO` | `ON` | Optimisation à l'édition de liens (compilation plus lente, exécution plus rapide). |
 | `PEGASUS_STATIC_CXX` | `OFF` | Lier statiquement le runtime C++. |
 
-Pour une compilation Linux 32 bits, configurez de la même manière avec une chaîne d'outils 32 bits (ou sur un système 32 bits).
+Pour ARM (`arm64` ou `armhf`), configurez de la même manière avec un fichier de chaîne d'outils de compilation croisée pour la cible, ou compilez directement sur l'appareil.
 
 ### Android
 

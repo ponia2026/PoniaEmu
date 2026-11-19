@@ -57,8 +57,8 @@ Notes:
 
 | Platform | Architectures | Notes |
 | --- | --- | --- |
-| Android | 64-bit (`arm64-v8a`), 32-bit (`armeabi-v7a`) | Android 6.0 (API 23) or newer. Works with a touch screen, a gamepad or a TV remote. |
-| Linux | 64-bit, 32-bit | Runs on X11, Wayland or directly on the framebuffer (KMS/DRM). The `poniaplay` executable is installed next to the frontend. |
+| Android | ARM 64-bit (`arm64-v8a`), ARM 32-bit (`armeabi-v7a`) | Android 6.0 (API 23) or newer. Works with a touch screen, a gamepad or a TV remote. |
+| Linux | x86_64 (64-bit PC), ARM 64-bit (`arm64`), ARM 32-bit (`armhf`) | Runs on X11, Wayland or directly on the framebuffer (KMS/DRM). The `poniaplay` executable is installed next to the frontend. |
 
 The GameCube core is not available on 32-bit ARM, because Dolphin has no ARM32 JIT.
 
@@ -103,7 +103,7 @@ Useful options:
 | `PEGASUS_ENABLE_LTO` | `ON` | Link-time optimization (slower to build, faster to run). |
 | `PEGASUS_STATIC_CXX` | `OFF` | Link the C++ runtime statically. |
 
-For a 32-bit Linux build, configure the same way with a 32-bit toolchain (or on a 32-bit system).
+For ARM (`arm64` or `armhf`), configure the same way with a cross-compiling toolchain file for the target, or build on the device itself.
 
 ### Android
 

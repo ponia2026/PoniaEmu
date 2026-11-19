@@ -57,8 +57,8 @@ Libretro 核心（`.so` 文件）。两者合在一起就是一个独立的应�
 
 | 平台 | 架构 | 备注 |
 | --- | --- | --- |
-| Android | 64 位（`arm64-v8a`）、32 位（`armeabi-v7a`） | Android 6.0（API 23）以上。可用触控屏、手柄或电视遥控器操作。 |
-| Linux | 64 位、32 位 | 可在 X11、Wayland 下运行，也能直接跑在 framebuffer（KMS/DRM）上。`poniaplay` 可执行文件会安装在前端旁边。 |
+| Android | ARM 64 位（`arm64-v8a`）、ARM 32 位（`armeabi-v7a`） | Android 6.0（API 23）以上。可用触控屏、手柄或电视遥控器操作。 |
+| Linux | x86_64（64 位电脑）、ARM 64 位（`arm64`）、ARM 32 位（`armhf`） | 可在 X11、Wayland 下运行，也能直接跑在 framebuffer（KMS/DRM）上。`poniaplay` 可执行文件会安装在前端旁边。 |
 
 GameCube 核心不支持 32 位 ARM，因为 Dolphin 没有 ARM32 的 JIT。
 
@@ -103,7 +103,7 @@ sudo cmake --install build
 | `PEGASUS_ENABLE_LTO` | `ON` | 链接时优化（编译较慢，运行较快）。 |
 | `PEGASUS_STATIC_CXX` | `OFF` | 以静态方式链接 C++ 运行时。 |
 
-要编 32 位 Linux 版，配置方式相同，改用 32 位工具链（或在 32 位系统上编译）。
+要编 ARM 版（`arm64` 或 `armhf`），配置方式相同，改用对应目标的交叉编译工具链文件，或直接在设备上编译。
 
 ### Android
 
