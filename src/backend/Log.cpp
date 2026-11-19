@@ -55,7 +55,6 @@ public:
     Terminal()
         : m_stream(stdout)
     {
-        m_stream.setCodec("UTF-8");
     }
 
     void info(const QString& msg) override {
@@ -100,7 +99,6 @@ public:
             return;
         }
 
-        m_stream.setCodec("UTF-8");
         m_stream.setDevice(&m_file);
     }
 
@@ -160,7 +158,7 @@ public:
     }
 
 private:
-    static constexpr auto m_appname = "pegasus-fe";
+    static constexpr auto m_appname = "poniafe";
     static constexpr auto m_marker_info = "[i] ";
     static constexpr auto m_marker_warning = "[w] ";
     static constexpr auto m_marker_error = "[e] ";

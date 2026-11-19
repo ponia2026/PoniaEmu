@@ -18,12 +18,16 @@
 #include "Backend.h"
 
 #include "AppSettings.h"
+#include "ponia_version.h"
 #include "Log.h"
 #include "FrontendLayer.h"
 #include "ProcessLauncher.h"
 #include "ScriptRunner.h"
 #include "Paths.h"
 #include "platform/PowerCommands.h"
+#ifdef Q_OS_ANDROID
+#  include "platform/AndroidHelpers.h"
+#endif
 #include "types/AppCloseType.h"
 
 // For type registration
@@ -39,6 +43,9 @@
 #include "SortFilterProxyModel/sorters/sortersqmltypes.h"
 
 #include <QGuiApplication>
+#ifdef Q_OS_ANDROID
+#include <QJniObject>
+#endif
 #include <QQmlEngine>
 #include <QTimer>
 
@@ -54,7 +61,7 @@ class FolderListModel;
 namespace {
 void print_metainfo()
 {
-    Log::info(LOGMSG("Pegasus " GIT_REVISION " (" GIT_DATE ")"));
+    Log::info(LOGMSG(PONIA_PRODUCT_NAME " v" PONIA_VERSION " " PONIA_BUILD_DATE " " PONIA_GIT_SHORT));
     Log::info(LOGMSG("Running on %1 (%2, %3)").arg(
         QSysInfo::prettyProductName(),
         QSysInfo::currentCpuArchitecture(),
@@ -67,6 +74,9 @@ void create_config_dirs()
     QDir configDir(paths::writableConfigDir());
     if (!configDir.mkpath(QStringLiteral("themes/")))
         Log::warning(LOGMSG("Failed to automatically create the `themes` directory"));
+#ifdef Q_OS_ANDROID
+    android::install_bundled_themes(configDir.absoluteFilePath(QStringLiteral("themes")));
+#endif
 }
 
 // On some platforms only one program can draw to the screen at a time,
@@ -74,7 +84,8 @@ void create_config_dirs()
 bool platform_requires_hiding()
 {
 #ifdef Q_OS_ANDROID
-    return true;
+    // Games are separate apps on top of the activity stack; the frontend can stay alive in the background.
+    return false;
 #else
     const QString platform = QGuiApplication::platformName();
     return platform == QLatin1String("eglfs")
@@ -90,22 +101,28 @@ void register_api_classes()
     //   this should come before the ApiObject constructor,
     //   as that may produce language change signals
 
-    constexpr auto API_URI = "Pegasus.Model";
+    // PoniaFE: the same types are available as both `Pegasus.*` (for existing
+    // Pegasus themes) and `Ponia.*` (for new themes)
+    constexpr const char* API_URIS[] = { "Pegasus.Model", "Ponia.Model" };
     const QString error_msg = LOGMSG("Sorry, you cannot create this type in QML.");
 
-    qmlRegisterUncreatableType<model::Collection>(API_URI, 0, 7, "Collection", error_msg);
-    qmlRegisterUncreatableType<model::Game>(API_URI, 0, 2, "Game", error_msg);
-    qmlRegisterUncreatableType<model::Assets>(API_URI, 0, 2, "GameAssets", error_msg);
-    qmlRegisterUncreatableType<model::Locales>(API_URI, 0, 11, "Locales", error_msg);
-    qmlRegisterUncreatableType<model::Themes>(API_URI, 0, 11, "Themes", error_msg);
-    qmlRegisterUncreatableType<model::Providers>(API_URI, 0, 11, "Providers", error_msg);
-    qmlRegisterUncreatableType<model::Key>(API_URI, 0, 10, "Key", error_msg);
-    qmlRegisterUncreatableType<model::Keys>(API_URI, 0, 10, "Keys", error_msg);
-    qmlRegisterUncreatableType<model::GamepadManager>(API_URI, 0, 12, "GamepadManager", error_msg);
-    qmlRegisterUncreatableType<model::DeviceInfo>(API_URI, 0, 13, "Device", error_msg);
+    for (const char* const API_URI : API_URIS) {
+        qmlRegisterUncreatableType<model::Collection>(API_URI, 0, 7, "Collection", error_msg);
+        qmlRegisterUncreatableType<model::Game>(API_URI, 0, 2, "Game", error_msg);
+        qmlRegisterUncreatableType<model::Assets>(API_URI, 0, 2, "GameAssets", error_msg);
+        qmlRegisterUncreatableType<model::Locales>(API_URI, 0, 11, "Locales", error_msg);
+        qmlRegisterUncreatableType<model::Themes>(API_URI, 0, 11, "Themes", error_msg);
+        qmlRegisterUncreatableType<model::Providers>(API_URI, 0, 11, "Providers", error_msg);
+        qmlRegisterUncreatableType<model::Key>(API_URI, 0, 10, "Key", error_msg);
+        qmlRegisterUncreatableType<model::Keys>(API_URI, 0, 10, "Keys", error_msg);
+        qmlRegisterUncreatableType<model::GamepadManager>(API_URI, 0, 12, "GamepadManager", error_msg);
+        qmlRegisterUncreatableType<model::DeviceInfo>(API_URI, 0, 13, "Device", error_msg);
+        qmlRegisterUncreatableType<model::CoreInstaller>(API_URI, 0, 14, "CoreInstaller", error_msg);
+    }
 
     // QML utilities
     qmlRegisterType<FolderListModel>("Pegasus.FolderListModel", 1, 0, "FolderListModel");
+    qmlRegisterType<FolderListModel>("Ponia.FolderListModel", 1, 0, "FolderListModel");
 
     // third-party
     qqsfpm::registerSorterTypes();
@@ -130,10 +147,15 @@ void on_app_close(AppCloseType type)
         default: break;
     }
 
-    Log::info(LOGMSG("Closing Pegasus, goodbye!"));
+    Log::info(LOGMSG("Closing PoniaFE, goodbye!"));
     Log::close();
 
     QCoreApplication::quit();
+#ifdef Q_OS_ANDROID
+    // quit() leaves the activity on screen; close it so Android returns to the home screen
+    if (type == AppCloseType::QUIT)
+        QJniObject::callStaticMethod<void>(android::jni_classname(), "quitApp", "()V");
+#endif
     switch (type) {
         case AppCloseType::REBOOT:
             platform::power::reboot();
@@ -193,6 +215,24 @@ Backend::Backend(const CliArgs& args)
         Log::info(LOGMSG("Hiding the frontend after the configured delay"));
         m_frontend->teardown();
     });
+
+#ifdef Q_OS_ANDROID
+    // The frontend is kept alive while a game (another app) runs. Nothing reports when that app ends, so
+    // watch for the frontend returning to the foreground; without it the gamepad stays stopped.
+    QObject::connect(qGuiApp, &QGuiApplication::applicationStateChanged, [this](Qt::ApplicationState state){
+        if (!m_android_game_running)
+            return;
+        if (state != Qt::ApplicationActive) {
+            m_android_left_foreground = true;
+        }
+        else if (m_android_left_foreground) {
+            m_android_game_running = false;
+            m_android_left_foreground = false;
+            Log::info(LOGMSG("Back from the game"));
+            m_launcher->onAndroidReturned();
+        }
+    });
+#endif
 
     // the following communication is required because process handling
     // and destroying/rebuilding the frontend stack are asynchronous tasks;
@@ -295,7 +335,7 @@ void Backend::onProcessLaunched()
 {
     int delay_sec = AppSettings::general.hide_delay_after_launch;
     if (delay_sec != 0 && platform_requires_hiding()) {
-        Log::info(LOGMSG("This platform allows only one program on the screen, hiding Pegasus immediately"));
+        Log::info(LOGMSG("This platform allows only one program on the screen, hiding PoniaFE immediately"));
         delay_sec = 0;
     }
 
@@ -309,6 +349,12 @@ void Backend::onProcessLaunched()
     else {
         Log::info(LOGMSG("Keeping the frontend visible while the program runs"));
     }
+#ifdef Q_OS_ANDROID
+    if (delay_sec < 0) {
+        m_android_game_running = true;
+        m_android_left_foreground = false;
+    }
+#endif
 
     m_api_private->gamepad().stop();
 }

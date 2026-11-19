@@ -51,6 +51,8 @@ private:
     ProcessLauncher* m_launcher;
     ProviderManager* m_providerman;
     QTimer* m_hide_timer;
+    bool m_android_game_running = false;
+    bool m_android_left_foreground = false;
 
     void onScanRequested(bool force_refresh = false);
     void onScanFinished();

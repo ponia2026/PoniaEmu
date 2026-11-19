@@ -18,7 +18,11 @@
 #include "ProcessLauncher.h"
 
 #include "Log.h"
+#include "ponia_systems.h"
+#include "model/cores/GameSystem.h"
+#include "ponia_cores.h"
 #include "ScriptRunner.h"
+#include "model/gaming/Collection.h"
 #include "model/gaming/Game.h"
 #include "model/gaming/GameFile.h"
 #include "platform/TerminalKbd.h"
@@ -29,7 +33,11 @@
 #include "platform/AndroidHelpers.h"
 #endif
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
 #include <QUrl>
 #include <QRegularExpression>
 
@@ -164,11 +172,52 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
     const model::GameFile& gamefile = *q_gamefile;
     const model::Game& game = *gamefile.parentGame();
 
+    QString launch_cmd_str = game.launchCmd();
+    // 没写启动命令：认得的机种自动用内建 Libretro 播放器（依集合简称/名称判断）
+    if (launch_cmd_str.trimmed().isEmpty()) {
+        const std::string key = ponia::system_key_for_game(game, &gamefile.fileinfo());
+        if (!key.empty()) {
+            const char* standalone = nullptr;
+#ifdef Q_OS_ANDROID
+            standalone = ponia::standalone_launch_cmd(key);   // PSP / GameCube：交给已安装的独立模拟器 App
+            if (standalone && key == "psp") {
+                // PPSSPP 键位：按「位置」对应（南=✕ 东=○ 西=□ 北=△），热键 SELECT+START 退出 / +R1 存档 / +L1 读档；单独 L2 = PPSSPP 主菜单（+X 分辨率 / +Y FPS / +R2 快进 / +L2 快退 PPSSPP 做不到，弃用）。
+                // 只在「第一次从 Ponia 启动 PSP 游戏」时覆盖（用户何时装 PPSSPP 不可知，也不要每次抹掉用户自己的调整）；改版本号 = 重新覆盖一次。
+                // Android 键码：A96 B97 X99 Y100 L1 102 R1 103 START108；手把「Back/Select」在系统键盘布局里常被映成 BACK(4) 而不是 SELECT(109)，两个都绑；
+                // L2/R2 在这类手把上是轴不是键：轴码 = 4000 + 轴号*2（LTRIGGER=17 → 4034，RTRIGGER=18 → 4036）。
+                const QString marker = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QStringLiteral("/psp_controls_v3.done");
+                if (!QFileInfo::exists(marker)) {
+                    const char* ini =
+                        "[ControlMapping]\n"
+                        "Up = 10-4033,10-19\nDown = 10-4032,10-20\nLeft = 10-4031,10-21\nRight = 10-4030,10-22\n"
+                        "Cross = 10-96\nCircle = 10-97\nSquare = 10-99\nTriangle = 10-100\n"
+                        "Start = 10-108\nSelect = 10-4,10-109\nL = 10-102\nR = 10-103\n"
+                        "An.Up = 10-4003\nAn.Down = 10-4002\nAn.Left = 10-4001\nAn.Right = 10-4000\n"
+                        "Pause = 10-104,10-4034\nExit App = 10-4:10-108,10-109:10-108\n"
+                        "Save State = 10-4:10-103,10-109:10-103\nLoad State = 10-4:10-102,10-109:10-102\n";
+                    QDir().mkpath(QStringLiteral("/sdcard/PSP/SYSTEM"));
+                    QFile f(QStringLiteral("/sdcard/PSP/SYSTEM/controls.ini"));
+                    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                        f.write(ini); f.close();
+                        QDir().mkpath(QFileInfo(marker).absolutePath());
+                        QFile m(marker); if (m.open(QIODevice::WriteOnly)) m.close();
+                    }
+                }
+            }
+#endif
+            if (standalone)
+                launch_cmd_str = QString::fromUtf8(standalone);
+            else
+                launch_cmd_str = QStringLiteral("poniaplay --system ") + QString::fromStdString(key)
+                               + QStringLiteral(" --content \"{file.path}\"");
+        }
+    }
+
     const QString raw_launch_cmd =
 #if defined(Q_OS_LINUX) && defined(PEGASUS_INSIDE_FLATPAK)
-        QLatin1String("flatpak-spawn --host ") + game.launchCmd();
+        QLatin1String("flatpak-spawn --host ") + launch_cmd_str;
 #else
-        game.launchCmd();
+        launch_cmd_str;
 #endif
 
 
@@ -186,11 +235,18 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
         emit processLaunchError(message);
         return;
     }
+    // 内置 Libretro 播放器：裸命令 `poniaplay` 优先取主程序同目录那一份（装在哪都找得到）
+    if (command == QLatin1String("poniaplay")) {
+        const QString sibling = QCoreApplication::applicationDirPath() + QLatin1String("/poniaplay");
+        if (QFileInfo::exists(sibling))
+            command = sibling;
+    }
     command = helpers::abs_launchcmd(command, game.launchCmdBasedir());
 
 #ifdef Q_OS_ANDROID
-    const bool android_command_valid = command.toLower() == QLatin1String("am");
-    const bool android_args_valid = !args.isEmpty() && args.first().toLower() == QLatin1String("start");
+    const bool is_player = (command == QLatin1String("poniaplay"));   // 内置播放器：开 PlayerActivity
+    const bool android_command_valid = is_player || command.toLower() == QLatin1String("am");
+    const bool android_args_valid = is_player || (!args.isEmpty() && args.first().toLower() == QLatin1String("start"));
     if (!android_command_valid || !android_args_valid) {
         const QString message = LOGMSG("Only 'am start' commands are supported at the moment");
         Log::warning(message);
@@ -247,7 +303,9 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
     m_process->waitForStarted(-1);
 
 #else // Q_OS_ANDROID
-    const QString result = android::run_am_call(args);
+    const QString result = (command == QLatin1String("poniaplay"))
+        ? android::launch_player(args)
+        : android::run_am_call(args);
     if (result.isEmpty()) {
         emit processLaunchOk();
         Log::info(LOGMSG("Activity finished"));

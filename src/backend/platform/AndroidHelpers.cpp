@@ -17,13 +17,19 @@
 
 #include "AndroidHelpers.h"
 
+#include "Log.h"
+#include "ponia_version.h"
+
 #include <QDir>
+#include <QDirIterator>
+#include <QFile>
+#include <QFileInfo>
 #include <QHash>  // Required for PermissionResultMap
 #include <QStandardPaths>
-#include <QtAndroid>
-#include <QtAndroidExtras/QAndroidIntent>
-#include <QtAndroidExtras/QAndroidJniEnvironment>
-#include <QtAndroidExtras/QAndroidJniObject>
+#include <QCoreApplication>
+#include <QtCore/private/qandroidextras_p.h>
+#include <QJniEnvironment>
+#include <QJniObject>
 #include <QUrl>
 
 
@@ -32,8 +38,8 @@ QStringList query_string_array(const char* const method)
 {
     static constexpr auto JNI_SIGNATURE = "()[Ljava/lang/String;";
 
-    QAndroidJniEnvironment jni_env;
-    const auto jni_path_arr_raw = QAndroidJniObject::callStaticObjectMethod(android::jni_classname(), method, JNI_SIGNATURE);
+    QJniEnvironment jni_env;
+    const auto jni_path_arr_raw = QJniObject::callStaticObjectMethod(android::jni_classname(), method, JNI_SIGNATURE);
     const auto jni_path_arr = jni_path_arr_raw.object<jobjectArray>();
     const jsize path_count = jni_env->GetArrayLength(jni_path_arr);
 
@@ -41,8 +47,8 @@ QStringList query_string_array(const char* const method)
     out.reserve(path_count);
 
     for (jsize i = 0; i < path_count; i++) {
-        const auto jni_path_raw = QAndroidJniObject(jni_env->GetObjectArrayElement(jni_path_arr, i));
-        out.append(jni_path_raw.toString());  // TODO: Qt 6 emplace_back
+        const auto jni_path_raw = QJniObject(jni_env->GetObjectArrayElement(jni_path_arr, i));
+        out.append(jni_path_raw.toString());
     }
 
     return out;
@@ -53,7 +59,7 @@ QStringList query_string_array(const char* const method)
 namespace android {
 
 const char* jni_classname() {
-    return "org/pegasus_frontend/android/MainActivity";
+    return "org/ponia/PoniaEmu/MainActivity";
 }
 
 QString primary_storage_path()
@@ -61,7 +67,7 @@ QString primary_storage_path()
     static constexpr auto JNI_METHOD = "primaryStoragePath";
     static constexpr auto JNI_SIGNATURE = "()Ljava/lang/String;";
 
-    const auto result_obj = QAndroidJniObject::callStaticObjectMethod(jni_classname(), JNI_METHOD, JNI_SIGNATURE);
+    const auto result_obj = QJniObject::callStaticObjectMethod(jni_classname(), JNI_METHOD, JNI_SIGNATURE);
     return result_obj.toString();
 }
 
@@ -82,35 +88,33 @@ void request_saf_permission(const std::function<void()>& cb_success)
 {
     constexpr int REQ_OPEN_DOCUMENT_TREE = 0x1;
 
-    const auto activity_cb = [&cb_success](int requestCode, int resultCode, const QAndroidJniObject& data) {
-        const jint RESULT_OK = QAndroidJniObject::getStaticField<jint>("android/app/Activity", "RESULT_OK");
+    const auto activity_cb = [cb_success](int requestCode, int resultCode, const QJniObject& data) {
+        const jint RESULT_OK = QJniObject::getStaticField<jint>("android/app/Activity", "RESULT_OK");
         if (requestCode != REQ_OPEN_DOCUMENT_TREE || resultCode != RESULT_OK || !data.isValid())
             return;
 
-        const QAndroidJniObject uri = data.callObjectMethod("getData", "()Landroid/net/Uri;");
+        const QJniObject uri = data.callObjectMethod("getData", "()Landroid/net/Uri;");
         if (!uri.isValid())
             return;
 
         static constexpr auto REMEMBER_FN = "rememberGrantedPath";
         static constexpr auto REMEMBER_SIGN = "(Landroid/net/Uri;)V";
-        QAndroidJniObject::callStaticMethod<void>(jni_classname(), REMEMBER_FN, REMEMBER_SIGN, uri.object());
+        QJniObject::callStaticMethod<void>(jni_classname(), REMEMBER_FN, REMEMBER_SIGN, uri.object());
 
         cb_success();
     };
 
-    QAndroidIntent intent(QStringLiteral("android.intent.action.OPEN_DOCUMENT_TREE"));
-    QtAndroid::startActivity(intent.handle(), REQ_OPEN_DOCUMENT_TREE, activity_cb);
+    const QJniObject action = QJniObject::fromString(QStringLiteral("android.intent.action.OPEN_DOCUMENT_TREE"));
+    const QJniObject intent("android/content/Intent", "(Ljava/lang/String;)V", action.object<jstring>());
+    QtAndroidPrivate::startActivity(intent, REQ_OPEN_DOCUMENT_TREE, activity_cb);
 }
 
 bool has_external_storage_access()
 {
-    using namespace QtAndroid;
-
-
     // Android 11
-    if (androidSdkVersion() >= 30) {
+    if (QNativeInterface::QAndroidApplication::sdkVersion() >= 30) {
         static constexpr auto JNI_METHOD = "getAllStorageAccess";
-        const auto has_permission = QAndroidJniObject::callStaticMethod<jboolean>(jni_classname(), JNI_METHOD);
+        const auto has_permission = QJniObject::callStaticMethod<jboolean>(jni_classname(), JNI_METHOD);
         if (!has_permission)
             return false;
     }
@@ -123,28 +127,43 @@ bool has_external_storage_access()
     const bool has_all_permissions = std::all_of(
         required_permissions.cbegin(),
         required_permissions.cend(),
-        [](const QString& p){ return checkPermission(p) == PermissionResult::Granted; });
+        [](const QString& p){ return QtAndroidPrivate::checkPermission(p).result() == QtAndroidPrivate::Authorized; });
     if (has_all_permissions)
         return true;
 
-    const PermissionResultMap granted_permissions = requestPermissionsSync(required_permissions);
     for (const QString& p : required_permissions) {
-        const PermissionResult result = granted_permissions.value(p, PermissionResult::Denied);
-        if (result != PermissionResult::Granted)
+        if (QtAndroidPrivate::requestPermission(p).result() != QtAndroidPrivate::Authorized)
             return false;
     }
 
     return true;
 }
 
+void install_bundled_themes(const QString& themes_dir)
+{
+    // Qt 的 assets:/ 目录枚举在这里不可靠，交给 Java 的 AssetManager 解包
+    static constexpr auto JNI_METHOD = "installBundledThemes";
+    static constexpr auto JNI_SIGNATURE = "(Ljava/lang/String;Ljava/lang/String;)V";
+
+    const QJniObject jni_dir = QJniObject::fromString(themes_dir);
+    const QJniObject jni_ver = QJniObject::fromString(QStringLiteral(PONIA_ASSET_STAMP));
+    QJniObject::callStaticMethod<void>(jni_classname(), JNI_METHOD, JNI_SIGNATURE,
+                                       jni_dir.object<jstring>(), jni_ver.object<jstring>());
+}
+
+void restart_app()
+{
+    QJniObject::callStaticMethod<void>(jni_classname(), "restartApp", "()V");
+}
+
 QString run_am_call(const QStringList& args)
 {
-    QAndroidJniEnvironment jni_env;
+    QJniEnvironment jni_env;
 
-    std::vector<QAndroidJniObject> str_objs;
+    std::vector<QJniObject> str_objs;
     str_objs.reserve(args.length());
     for (const QString& arg : args)
-        str_objs.emplace_back(QAndroidJniObject::fromString(arg));
+        str_objs.emplace_back(QJniObject::fromString(arg));
 
     jobjectArray jni_arr = jni_env->NewObjectArray(args.size(), jni_env->FindClass("java/lang/String"), nullptr);
     for (size_t i = 0; i < str_objs.size(); i++)
@@ -152,8 +171,44 @@ QString run_am_call(const QStringList& args)
 
     static constexpr auto JNI_METHOD = "launchAmCommand";
     static constexpr auto JNI_SIGNATURE = "([Ljava/lang/String;)Ljava/lang/String;";
-    const auto result_obj = QAndroidJniObject::callStaticObjectMethod(jni_classname(), JNI_METHOD, JNI_SIGNATURE, jni_arr);
+    const auto result_obj = QJniObject::callStaticObjectMethod(jni_classname(), JNI_METHOD, JNI_SIGNATURE, jni_arr);
     return result_obj.toString();
+}
+
+QString launch_player(const QStringList& args)
+{
+    QJniEnvironment jni_env;
+
+    std::vector<QJniObject> str_objs;
+    str_objs.reserve(args.length());
+    for (const QString& arg : args)
+        str_objs.emplace_back(QJniObject::fromString(arg));
+
+    jobjectArray jni_arr = jni_env->NewObjectArray(args.size(), jni_env->FindClass("java/lang/String"), nullptr);
+    for (size_t i = 0; i < str_objs.size(); i++)
+        jni_env->SetObjectArrayElement(jni_arr, i, str_objs.at(i).object<jstring>());
+
+    static constexpr auto JNI_METHOD = "launchPlayer";
+    static constexpr auto JNI_SIGNATURE = "([Ljava/lang/String;)Ljava/lang/String;";
+    const auto result_obj = QJniObject::callStaticObjectMethod(jni_classname(), JNI_METHOD, JNI_SIGNATURE, jni_arr);
+    return result_obj.toString();
+}
+
+void start_download(const QString& url, const QString& dest_path)
+{
+    static constexpr auto JNI_METHOD = "startDownload";
+    static constexpr auto JNI_SIGNATURE = "(Ljava/lang/String;Ljava/lang/String;)V";
+    const QJniObject jni_url = QJniObject::fromString(url);
+    const QJniObject jni_dest = QJniObject::fromString(dest_path);
+    QJniObject::callStaticMethod<void>(jni_classname(), JNI_METHOD, JNI_SIGNATURE,
+                                       jni_url.object<jstring>(), jni_dest.object<jstring>());
+}
+
+QString poll_download()
+{
+    static constexpr auto JNI_METHOD = "pollDownload";
+    static constexpr auto JNI_SIGNATURE = "()Ljava/lang/String;";
+    return QJniObject::callStaticObjectMethod(jni_classname(), JNI_METHOD, JNI_SIGNATURE).toString();
 }
 
 QString to_content_uri(const QString& path)
@@ -161,10 +216,10 @@ QString to_content_uri(const QString& path)
     static constexpr auto JNI_METHOD = "toContentUri";
     static constexpr auto JNI_SIGNATURE = "(Ljava/lang/String;)Ljava/lang/String;";
 
-    QAndroidJniObject jni_path_str = QAndroidJniObject::fromString(path);
+    QJniObject jni_path_str = QJniObject::fromString(path);
 
-    QAndroidJniEnvironment jni_env;
-    const auto result_obj = QAndroidJniObject::callStaticObjectMethod(
+    QJniEnvironment jni_env;
+    const auto result_obj = QJniObject::callStaticObjectMethod(
         jni_classname(),
         JNI_METHOD,
         JNI_SIGNATURE,
@@ -193,7 +248,7 @@ QString to_document_uri(const QString& path)
         if (most_specific_root == primary_storage_path())
             return QStringLiteral("primary:");
 
-        QVector<QStringRef> parts = most_specific_root.splitRef(QChar('/'));
+        QList<QStringView> parts = QStringView(most_specific_root).split(QChar('/'));
         return parts.last().toString() + QChar(':');
     }();
     const QString rel_dir = prefix + storage_root.relativeFilePath(abs_dir);

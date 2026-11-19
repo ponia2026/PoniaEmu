@@ -25,6 +25,9 @@
 #include "utils/PathTools.h"
 
 #include <QDirIterator>
+#ifdef Q_OS_ANDROID
+#  include "platform/AndroidHelpers.h"
+#endif
 #include <QStringBuilder>
 #include <QUrl>
 
@@ -106,7 +109,7 @@ std::vector<model::ThemeEntry> find_available_themes()
             // add the qrc/file protocol prefix
             const bool is_builtin = basedir.startsWith(':');
             qml_path = is_builtin
-                ? QLatin1String("qrc://") % qml_path.midRef(1)
+                ? QLatin1String("qrc://") % QStringView(qml_path).mid(1)
                 : QUrl::fromLocalFile(qml_path).toString();
 
             themes.emplace_back(
@@ -173,11 +176,21 @@ void Themes::select_preferred_theme()
     if (select_theme(AppSettings::general.theme))
         return;
 
-    // B. Fall back to the built-in theme
+    // B. 优先使用 Macaron（PoniaFE 的默认主题）
+    for (size_t idx = 0; idx < m_themes.size(); idx++) {
+        const QString& dir = m_themes.at(idx).root_dir;
+        if (dir.endsWith(QLatin1String("/macaron/"))) {
+            m_current_idx = idx;
+            return;
+        }
+    }
+
+    // C. 退回内置的兜底主题
     if (select_theme(AppSettings::general.DEFAULT_THEME))
         return;
 
-    Q_UNREACHABLE();
+    // 理论上不会发生：兜底主题编进了程序里
+    m_current_idx = 0;
 }
 
 bool Themes::select_theme(const QString& root_dir)
@@ -252,6 +265,14 @@ void Themes::setCurrentIndex(int idx_int)
     // set
     m_current_idx = idx;
     print_change();
+
+#ifdef Q_OS_ANDROID
+    // 先保存再重启：不能让 QML 销毁旧主题（见 MainActivity.restartApp）
+    AppSettings::general.theme = currentQmlDir();
+    AppSettings::save_config();
+    android::restart_app();
+    return;
+#endif
     emit themeChanged(currentQmlDir());
 
     // remember

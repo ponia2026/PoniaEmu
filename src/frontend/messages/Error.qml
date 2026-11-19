@@ -23,13 +23,14 @@ Rectangle {
     color: "#000"
 
     property alias title: txtTitle.text
-    property alias details: txtDescription.text
+    property string details: ""   // translations wrap the URL in <i>…</i> (some leave it unclosed and italicise the rest): drop italics, one style for the whole page
     property alias instruction: txtInstruction.text
-    property alias logInfo: txtLogInfo.text
+    // translations carry "<pre>path</pre>" (monospace): show the path in the same font as the rest of the page instead
+    property string logInfo: ""
 
     readonly property int titleTextSize: vpx(50)
-    readonly property int detailsTextSize: vpx(18)
-    readonly property int instructionTextSize: vpx(20)
+    readonly property int detailsTextSize: vpx(20)       // one size for every paragraph (used to be 18 / 20 / 18)
+    readonly property int instructionTextSize: detailsTextSize
 
     readonly property color titleColor: "#eee"
     readonly property color detailsColor: "#ccc"
@@ -58,9 +59,11 @@ Rectangle {
         Text {
             id: txtDescription
 
+            text: details.replace(/<\/?i>|<\/>/g, "")   // "</>" = a translation's malformed closing tag
+            textFormat: Text.RichText                   // keep <br> working now that the <i> tags are gone (auto-detect would fall back to plain text)
             width: parent.width
             wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignJustify
+            horizontalAlignment: Text.AlignLeft   // justified text stretched the gaps (worst with CJK)
 
             color: detailsColor
             font.pixelSize: detailsTextSize
@@ -72,7 +75,7 @@ Rectangle {
 
             width: parent.width
             wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignJustify
+            horizontalAlignment: Text.AlignLeft
 
             color: instructionColor
             font.pixelSize: instructionTextSize
@@ -82,9 +85,11 @@ Rectangle {
         Text {
             id: txtLogInfo
 
+            text: logInfo.replace(/<pre>/g, "<br>").replace(/<\/pre>/g, "")
+            textFormat: Text.RichText
             width: parent.width
-            wrapMode: Text.WordWrap
-            horizontalAlignment: Text.AlignJustify
+            wrapMode: Text.WrapAtWordBoundaryOrAnywhere   // the path has no spaces
+            horizontalAlignment: Text.AlignLeft
 
             color: detailsColor
             font.pixelSize: detailsTextSize

@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+// Ponia: folder picker with multi-select. Only folders are listed; A ticks / unticks a folder, Right opens it,
+// Keys: D-pad Right opens the highlighted folder, D-pad Left goes up (same as the ".." entry); Down button on ".." goes up, on an unticked folder ticks it, on a ticked
+// folder confirms and adds every ticked folder; Right button unticks (the highlighted folder if it is ticked, otherwise the
+// most recently ticked one) and, when nothing is ticked, closes the picker.
 
 import QtQuick 2.8
 import Pegasus.FolderListModel 1.0
@@ -23,28 +27,58 @@ FocusScope {
     id: root
 
     signal cancel
-    signal pick(string dir_path)
+    signal pick(var dir_paths)
 
     anchors.fill: parent
 
-    Keys.onPressed: {
-        if (api.keys.isCancel(event) && !event.isAutoRepeat) {
-            event.accepted = true;
+    property var picked: []   // absolute paths ticked so far (kept while browsing into other folders)
+
+    function join(dir, name) {
+        return dir.endsWith("/") ? dir + name : dir + "/" + name;
+    }
+    function isPicked(path) {
+        return picked.indexOf(path) >= 0;
+    }
+    function togglePath(path) {
+        var list = picked.slice();
+        var i = list.indexOf(path);
+        if (i >= 0)
+            list.splice(i, 1);
+        else
+            list.push(path);
+        picked = list;
+    }
+    function undoTick() {
+        if (picked.length === 0) {
             root.cancel();
+            return;
+        }
+        var it = list.currentItem;
+        if (it && it.ticked)
+            togglePath(it.fullPath);     // highlighted folder is ticked: untick that one
+        else
+            picked = picked.slice(0, picked.length - 1);   // otherwise untick the most recently ticked folder
+    }
+    function confirm() {
+        root.pick(picked.length > 0 ? picked : [folderModel.folder]);
+        picked = [];
+    }
+
+    Keys.onPressed: (event) => {
+        if (event.isAutoRepeat)
+            return;
+        if (api.keys.isCancel(event)) {   // Right button
+            event.accepted = true;
+            root.undoTick();
         }
     }
 
 
     FolderListModel {
         id: folderModel
-        files: [
-            "metadata.pegasus.txt",
-            "metadata.txt",
-        ]
-        extensions: [
-            ".metadata.pegasus.txt",
-            ".metadata.txt",
-        ]
+        // no collection files are listed: only folders (and the ".." entry) are shown
+        files: [ "\u0000" ]
+        extensions: [ "\u0000" ]
     }
 
 
@@ -58,7 +92,7 @@ FocusScope {
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.LeftButton | Qt.RightButton
-            onClicked: root.cancel()
+            onClicked: { root.picked = []; root.cancel(); }
         }
     }
 
@@ -78,8 +112,8 @@ FocusScope {
 
         Text {
             id: info
-            text: qsTr("Select a collection file below (metadata.pegasus.txt or metadata.txt).\n"
-                     + "The directory of the file will then be added to the list.")
+            text: qsTr("Choose your ROM folders - D-pad Right: open the folder, D-pad Left: go up.\n"
+                     + "Down button: tick a folder (on \"..\": go up); press it again on a ticked folder to confirm and add all ticked folders. Right button: untick (when nothing is ticked: close).") + api.tr
             color: "#ee4"
             font.family: globalFonts.sans
             font.pixelSize: vpx(18)
@@ -109,7 +143,7 @@ FocusScope {
                 Text {
                     id: pathText
                     text: folderModel.folder
-                    width: parent.width
+                    width: parent.width - countText.width
 
                     color: "#bbb"
                     font.family: globalFonts.sans
@@ -119,6 +153,21 @@ FocusScope {
                     verticalAlignment: Text.AlignVCenter
                     leftPadding: font.pixelSize; rightPadding: leftPadding
                     elide: Text.ElideMiddle
+                }
+                Text {
+                    id: countText
+                    visible: root.picked.length > 0
+                    text: qsTr("%1 selected").arg(root.picked.length) + api.tr
+                    anchors.right: parent.right
+                    height: parent.height
+
+                    color: "#6d6"
+                    font.bold: true
+                    font.family: globalFonts.sans
+                    font.pixelSize: vpx(18)
+                    verticalAlignment: Text.AlignVCenter
+                    rightPadding: font.pixelSize
+                    width: visible ? implicitWidth + rightPadding : 0
                 }
             }
             Rectangle {
@@ -150,38 +199,77 @@ FocusScope {
 
         Rectangle {
             readonly property bool highlighted: ListView.isCurrentItem || mouseArea.containsMouse
+            readonly property bool isParent: name === ".."
+            readonly property string fullPath: isParent ? "" : root.join(folderModel.folder, name)
+            readonly property bool ticked: fullPath !== "" && root.isPicked(fullPath)
+
+            readonly property real rowH: Math.round(vpx(18) * 2.5 * 4 / 3)   // fixed: children size themselves from this, not from label.height (circular on the first row)
 
             color: highlighted ? "#566" : "transparent"
             width: ListView.view.width
-            height: label.height
+            height: rowH
 
-            function pickItem() {
-                if (!isDir) {
-                    root.pick(folderModel.folder);
+            Keys.onPressed: (event) => {
+                if (event.isAutoRepeat)
                     return;
-                }
 
-                folderModel.cd(name);
-            }
-
-            Keys.onPressed: {
-                if (api.keys.isAccept(event) && !event.isAutoRepeat) {
+                if (api.keys.isAccept(event)) {
                     event.accepted = true;
-                    pickItem();
+                    if (isParent)
+                        folderModel.cd("..");
+                    else if (ticked)
+                        root.confirm();   // second press on a ticked folder = done: add everything ticked
+                    else
+                        root.togglePath(fullPath);
+                }
+                else if (api.keys.isRight(event)) {
+                    event.accepted = true;
+                    if (!isParent)
+                        folderModel.cd(name);
+                }
+                else if (api.keys.isLeft(event)) {   // D-pad Left: up one level, same as the ".." entry
+                    event.accepted = true;
+                    folderModel.cd("..");
                 }
             }
 
+
+            // tick box (not shown for the ".." entry)
+            Rectangle {
+                id: box
+                visible: !isParent
+                width: parent.height * 0.6
+                height: width
+                radius: width * 0.2
+
+                anchors.left: parent.left
+                anchors.leftMargin: parent.height * 0.4
+                anchors.verticalCenter: parent.verticalCenter
+
+                color: ticked ? "#4c5" : "transparent"
+                border.width: 2
+                border.color: ticked ? "#4c5" : "#aaa"
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: ticked
+                    text: "✓"
+                    color: "#fff"
+                    font.bold: true
+                    font.pixelSize: parent.height * 0.8
+                }
+            }
 
             Image {
                 id: icon
-                source: isDir ? "qrc:/frontend/assets/dir-icon.png" : "";
+                source: "qrc:/frontend/assets/dir-icon.png"
 
                 fillMode: Image.PreserveAspectFit
                 height: parent.height * 0.75
                 width: height
 
                 anchors.left: parent.left
-                anchors.leftMargin: parent.height * 0.5
+                anchors.leftMargin: parent.height * 1.2
                 anchors.top: parent.top
                 anchors.topMargin: parent.height * 0.08
             }
@@ -189,18 +277,18 @@ FocusScope {
             Text {
                 id: label
                 text: name
+                height: parent.rowH
                 verticalAlignment: Text.AlignVCenter
                 lineHeight: 2.5
 
-                color: "#eee"
-                font.bold: !isDir
+                color: ticked ? "#9f9" : "#eee"
+                font.bold: ticked
                 font.family: globalFonts.sans
                 font.pixelSize: vpx(18)
 
                 anchors.left: icon.right
+                anchors.leftMargin: icon.height * 0.3
                 anchors.right: parent.right
-                leftPadding: parent.height * 0.25
-                rightPadding: parent.height * 0.5
                 elide: Text.ElideRight
             }
 
@@ -208,8 +296,17 @@ FocusScope {
                 id: mouseArea
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: pickItem()
-                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    list.currentIndex = index;
+                    if (isParent)
+                        folderModel.cd("..");
+                    else
+                        root.togglePath(fullPath);
+                }
+                onDoubleClicked: {
+                    if (!isParent)
+                        folderModel.cd(name);
+                }
             }
         }
     }

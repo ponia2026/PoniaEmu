@@ -146,9 +146,9 @@ namespace appsettings {
 
 General::General()
     : DEFAULT_LOCALE(QStringLiteral("en"))
-    , DEFAULT_THEME(QStringLiteral(":/themes/pegasus-theme-grid/"))
+    , DEFAULT_THEME(QStringLiteral(":/themes/ponia-fallback/"))
     , locale() // intentionally blank
-    , theme(DEFAULT_THEME)
+    , theme()  // 留空：首次运行时优先选 Macaron，没有再用兜底主题
 {}
 
 
@@ -230,7 +230,6 @@ void AppSettings::parse_gamedirs(const std::function<void(const QString&)>& call
             continue;
 
         QTextStream stream(&config_file);
-        stream.setCodec("UTF-8");
 
         QString line;
         while (stream.readLineInto(&line, LINE_MAX_LEN)) {

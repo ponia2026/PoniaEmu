@@ -141,7 +141,7 @@ void add_file_fingerprint(QJsonArray& out, const QString& path)
     out.append(item);
 }
 
-void add_metadata_fingerprints(QJsonArray& out, const QString& dir_path)
+void add_metadata_fingerprints_flat(QJsonArray& out, const QString& dir_path)
 {
     const QDir dir(dir_path);
     if (!dir.exists())
@@ -149,6 +149,7 @@ void add_metadata_fingerprints(QJsonArray& out, const QString& dir_path)
 
     const QStringList names = {
         QStringLiteral("metadata.pegasus.txt"),
+        QStringLiteral("metadata.ponia.txt"),
         QStringLiteral("metadata.txt"),
     };
     for (const QString& name : names)
@@ -156,11 +157,23 @@ void add_metadata_fingerprints(QJsonArray& out, const QString& dir_path)
 
     const QStringList filters = {
         QStringLiteral("*.metadata.pegasus.txt"),
+        QStringLiteral("*.metadata.ponia.txt"),
         QStringLiteral("*.metadata.txt"),
     };
     QDirIterator it(dir.absolutePath(), filters, QDir::Files | QDir::NoSymLinks);
     while (it.hasNext())
         add_file_fingerprint(out, it.next());
+}
+
+// PoniaFE: metadata files are also searched one level down (see PegasusProvider), so fingerprint those too.
+void add_metadata_fingerprints(QJsonArray& out, const QString& dir_path)
+{
+    add_metadata_fingerprints_flat(out, dir_path);
+    QDirIterator sub_it(dir_path, QDir::Dirs | QDir::NoDotAndDotDot);
+    while (sub_it.hasNext()) {
+        sub_it.next();
+        add_metadata_fingerprints_flat(out, sub_it.filePath());
+    }
 }
 
 QJsonObject collection_to_json(const model::Collection& collection)

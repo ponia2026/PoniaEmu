@@ -36,11 +36,13 @@ target_include_directories(pegasus-backend PUBLIC
     "${PROJECT_SOURCE_DIR}/thirdparty"
     "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+target_include_directories(pegasus-backend PRIVATE "${PROJECT_SOURCE_DIR}/src/libretro-host")
 
 pegasus_require_qt(COMPONENTS
     Qml
     Quick
     Multimedia
+    Network
     Sql
     Svg
 )
@@ -48,10 +50,15 @@ target_link_libraries(pegasus-backend PUBLIC
     Qt::Qml
     Qt::Quick
     Qt::Multimedia
+    Qt::Network
     Qt::Sql
     Qt::Svg
     SortFilterProxyModel
 )
+
+# zlib: unpack the Libretro core packages downloaded on first run (model/cores/CoreInstaller)
+find_package(ZLIB REQUIRED)
+target_link_libraries(pegasus-backend PRIVATE ZLIB::ZLIB)
 
 include(PegasusCommonProps)
 pegasus_add_common_props_optimized(pegasus-backend)

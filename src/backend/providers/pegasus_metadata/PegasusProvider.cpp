@@ -31,9 +31,12 @@
 namespace {
 bool is_metadata_file(const QString& filename)
 {
+    // PoniaFE: `metadata.ponia.txt` is an alias of `metadata.pegasus.txt`
     return filename == QLatin1String("metadata.pegasus.txt")
+        || filename == QLatin1String("metadata.ponia.txt")
         || filename == QLatin1String("metadata.txt")
         || filename.endsWith(QLatin1String(".metadata.pegasus.txt"))
+        || filename.endsWith(QLatin1String(".metadata.ponia.txt"))
         || filename.endsWith(QLatin1String(".metadata.txt"));
 }
 
@@ -67,6 +70,17 @@ std::vector<QString> find_all_metafiles(const QStringList& gamedirs)
         result.insert(result.end(),
             std::make_move_iterator(local_metafiles.begin()),
             std::make_move_iterator(local_metafiles.end()));
+
+        // PoniaFE: also look one level down, so adding the `Ponia.Roms` root folder
+        // finds the per-platform metadata files in its subfolders.
+        QDirIterator sub_it(dir_path, QDir::Dirs | QDir::NoDotAndDotDot);
+        while (sub_it.hasNext()) {
+            sub_it.next();
+            std::vector<QString> sub_metafiles = find_metafiles_in(sub_it.filePath());
+            result.insert(result.end(),
+                std::make_move_iterator(sub_metafiles.begin()),
+                std::make_move_iterator(sub_metafiles.end()));
+        }
     }
 
     VEC_REMOVE_DUPLICATES(result);
@@ -79,7 +93,7 @@ namespace providers {
 namespace pegasus {
 
 PegasusProvider::PegasusProvider(QObject* parent)
-    : Provider(QLatin1String("pegasus_metafiles"), QStringLiteral("Pegasus Metafiles"), PROVIDER_FLAG_INTERNAL | PROVIDER_FLAG_CACHEABLE, parent)
+    : Provider(QLatin1String("pegasus_metafiles"), QStringLiteral("Ponia Metafiles"), PROVIDER_FLAG_INTERNAL | PROVIDER_FLAG_CACHEABLE, parent)
 {}
 
 Provider& PegasusProvider::run(SearchContext& sctx)

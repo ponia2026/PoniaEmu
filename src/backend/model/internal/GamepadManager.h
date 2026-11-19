@@ -26,10 +26,8 @@
 #include <QObject>
 #include <QString>
 
-#ifndef Q_OS_ANDROID
-#  include "GamepadAxisNavigation.h"
-#  include "GamepadButtonNavigation.h"
-#endif
+#include "GamepadAxisNavigation.h"
+#include "GamepadButtonNavigation.h"
 
 
 namespace model {
@@ -100,10 +98,8 @@ private:
     GamepadListModel* const m_devices;
     GamepadManagerBackend* const m_backend;
 
-#ifndef Q_OS_ANDROID
     GamepadButtonNavigation padbuttonnav;
     GamepadAxisNavigation padaxisnav;
-#endif
 };
 
 } // namespace model

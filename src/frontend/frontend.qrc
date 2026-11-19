@@ -81,4 +81,24 @@
         <file>menu/settings/AndroidSafEditor.qml</file>
         <file>menu/settings/common/SimpleShade.qml</file>
     </qresource>
+    <!-- 安卓版：外掛的文件名不同（libqml_QtMultimedia_quickmultimediaplugin_*.so），qmldir 单独一份 -->
+    <qresource prefix="/qmlcompat-android">
+        <file alias="QtMultimedia/qmldir">qmlcompat/QtMultimedia/qmldir.android</file>
+        <file alias="QtMultimedia/Playlist.qml">qmlcompat/QtMultimedia/Playlist.qml</file>
+        <file alias="QtMultimedia/PlaylistItem.qml">qmlcompat/QtMultimedia/PlaylistItem.qml</file>
+        <file alias="QtMultimedia/Qt5Player.qml">qmlcompat/QtMultimedia/Qt5Player.qml</file>
+        <file alias="QtMultimedia/Qt5SoundEffect.qml">qmlcompat/QtMultimedia/Qt5SoundEffect.qml</file>
+        <file alias="QtMultimedia/Qt5Video.qml">qmlcompat/QtMultimedia/Qt5Video.qml</file>
+        <file alias="QtMultimedia/Qt5VideoOutput.qml">qmlcompat/QtMultimedia/Qt5VideoOutput.qml</file>
+    </qresource>
+    <qresource prefix="/qmlcompat">
+        <file alias="QtGraphicalEffects/qmldir">qmlcompat/QtGraphicalEffects/qmldir</file>
+        <file alias="QtMultimedia/qmldir">qmlcompat/QtMultimedia/qmldir</file>
+        <file alias="QtMultimedia/Playlist.qml">qmlcompat/QtMultimedia/Playlist.qml</file>
+        <file alias="QtMultimedia/PlaylistItem.qml">qmlcompat/QtMultimedia/PlaylistItem.qml</file>
+        <file alias="QtMultimedia/Qt5Player.qml">qmlcompat/QtMultimedia/Qt5Player.qml</file>
+        <file alias="QtMultimedia/Qt5SoundEffect.qml">qmlcompat/QtMultimedia/Qt5SoundEffect.qml</file>
+        <file alias="QtMultimedia/Qt5Video.qml">qmlcompat/QtMultimedia/Qt5Video.qml</file>
+        <file alias="QtMultimedia/Qt5VideoOutput.qml">qmlcompat/QtMultimedia/Qt5VideoOutput.qml</file>
+    </qresource>
 </RCC>

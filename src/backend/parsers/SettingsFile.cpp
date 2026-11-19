@@ -271,8 +271,8 @@ void LoadContext::handle_key_attrib(const size_t lineno, const QString& key, con
 
     QVector<QKeySequence> keyseqs;
 
-    const auto key_strs = val.splitRef(',', Qt::SkipEmptyParts);
-    for (const QStringRef& strref : key_strs) {
+    const auto key_strs = QStringView(val).split(',', Qt::SkipEmptyParts);
+    for (const QStringView& strref : key_strs) {
         const QString str = strref
             .trimmed()
             .toString()
@@ -289,7 +289,7 @@ void LoadContext::handle_key_attrib(const size_t lineno, const QString& key, con
             keyseqs.append(std::move(keyseq));
     }
 
-    for (const QKeySequence& keyseq : qAsConst(keyseqs))
+    for (const QKeySequence& keyseq : std::as_const(keyseqs))
         AppSettings::keys.add_key(key_event, keyseq);
 }
 
@@ -310,7 +310,6 @@ void SaveContext::save() const
     }
 
     QTextStream stream(&config_file);
-    stream.setCodec("UTF-8");
 
     print_general(stream);
     print_providers(stream);

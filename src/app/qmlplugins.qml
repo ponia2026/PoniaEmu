@@ -28,6 +28,7 @@ import QtQuick.Timeline 1.0
 import QtQuick.Window 2.0
 
 import QtGraphicalEffects 1.0
+import Qt5Compat.GraphicalEffects  // Qt 6 下 QtGraphicalEffects 由 qmlcompat 转发到它；写出来供部署扫描器收录
 import QtMultimedia 5.8
 
 import QtQml.Models 2.15

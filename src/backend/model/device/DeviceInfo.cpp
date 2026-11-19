@@ -21,9 +21,11 @@
 #include <SDL.h>
 #elif defined(Q_OS_ANDROID)
 #include "platform/AndroidHelpers.h"
-#include <QtAndroidExtras/QAndroidJniEnvironment>
-#include <QtAndroidExtras/QAndroidJniObject>
+#include <QJniEnvironment>
+#include <QJniObject>
 #endif
+
+#include <QNetworkInformation>
 
 #include <cmath>
 
@@ -58,11 +60,11 @@ model::DeviceInfo::BatteryInfo query_battery()
 model::DeviceInfo::BatteryInfo query_battery()
 {
     static constexpr auto JNI_METHOD = "queryBattery";
-    static constexpr auto JNI_SIGNATURE = "()Lorg/pegasus_frontend/android/BatteryInfo;";
+    static constexpr auto JNI_SIGNATURE = "()Lorg/ponia/PoniaEmu/BatteryInfo;";
 
-    QAndroidJniEnvironment jni_env;
+    QJniEnvironment jni_env;
 
-    const QAndroidJniObject jni_obj = QAndroidJniObject::callStaticObjectMethod(android::jni_classname(), JNI_METHOD, JNI_SIGNATURE);
+    const QJniObject jni_obj = QJniObject::callStaticObjectMethod(android::jni_classname(), JNI_METHOD, JNI_SIGNATURE);
     if (!jni_obj.isValid())
         return {model::DeviceInfo::BatteryStatus::Unknown, NAN, -1};
 
@@ -97,6 +99,47 @@ DeviceInfo::DeviceInfo(QObject* parent)
     poll_battery();
     connect(&m_battery_poll, &QTimer::timeout, this, &DeviceInfo::poll_battery);
     m_battery_poll.start(30 * 1000);
+
+    // The platform backend plugin may be missing (then the type stays Unknown and themes show a default icon).
+    const auto features = QNetworkInformation::Feature::Reachability | QNetworkInformation::Feature::TransportMedium;
+    if (QNetworkInformation::loadBackendByFeatures(features) || QNetworkInformation::loadDefaultBackend()) {
+        if (QNetworkInformation* info = QNetworkInformation::instance()) {
+            connect(info, &QNetworkInformation::reachabilityChanged, this, &DeviceInfo::update_network);
+            connect(info, &QNetworkInformation::transportMediumChanged, this, &DeviceInfo::update_network);
+            update_network();
+        }
+    }
+}
+
+void DeviceInfo::update_network()
+{
+    const QNetworkInformation* info = QNetworkInformation::instance();
+    if (!info)
+        return;
+
+    using Reach = QNetworkInformation::Reachability;
+    const Reach reach = info->reachability();
+    const bool online = reach != Reach::Disconnected;
+
+    NetworkType type = NetworkType::Unknown;
+    if (reach == Reach::Disconnected) {
+        type = NetworkType::None;
+    }
+    else {
+        switch (info->transportMedium()) {
+            case QNetworkInformation::TransportMedium::Ethernet: type = NetworkType::Ethernet; break;
+            case QNetworkInformation::TransportMedium::WiFi: type = NetworkType::WiFi; break;
+            case QNetworkInformation::TransportMedium::Cellular: type = NetworkType::Mobile; break;
+            case QNetworkInformation::TransportMedium::Bluetooth: type = NetworkType::Other; break;
+            default: type = NetworkType::Unknown; break;
+        }
+    }
+
+    if (type == m_network_type && online == m_online)
+        return;
+    m_network_type = type;
+    m_online = online;
+    emit networkChanged();
 }
 
 void DeviceInfo::poll_battery()

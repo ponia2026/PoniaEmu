@@ -46,11 +46,11 @@ QString find_systems_xml(const std::vector<QString>& possible_config_dirs)
 }
 
 HashMap<QLatin1String, QString>::iterator
-find_by_str_ref(HashMap<QLatin1String, QString>& map, const QStringRef& str)
+find_by_str_ref(HashMap<QLatin1String, QString>& map, const QStringView& str)
 {
     HashMap<QLatin1String, QString>::iterator it;
     for (it = map.begin(); it != map.end(); ++it)
-        if (it->first == str)
+        if (str.compare(it->first) == 0)
             break;
 
     return it;
@@ -59,7 +59,7 @@ find_by_str_ref(HashMap<QLatin1String, QString>& map, const QStringRef& str)
 
 providers::es2::SystemEntry read_system_entry(const QString& log_tag, QXmlStreamReader& xml)
 {
-    Q_ASSERT(xml.isStartElement() && xml.name() == "system");
+    Q_ASSERT(xml.isStartElement() && xml.name() == QLatin1String("system"));
 
     // read all XML fields into a key-value map
 

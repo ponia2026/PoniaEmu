@@ -14,11 +14,11 @@ unix:!macx {
     target.path = $${INSTALL_BINDIR}
 
     !isEmpty(INSTALL_ICONDIR) {
-        icon16.files += platform/linux/icons/16/org.pegasus_frontend.Pegasus.png
-        icon32.files += platform/linux/icons/32/org.pegasus_frontend.Pegasus.png
-        icon48.files += platform/linux/icons/48/org.pegasus_frontend.Pegasus.png
-        icon64.files += platform/linux/icons/64/org.pegasus_frontend.Pegasus.png
-        icon128.files += platform/linux/icons/128/org.pegasus_frontend.Pegasus.png
+        icon16.files += platform/linux/icons/16/org.ponia.PoniaFE.png
+        icon32.files += platform/linux/icons/32/org.ponia.PoniaFE.png
+        icon48.files += platform/linux/icons/48/org.ponia.PoniaFE.png
+        icon64.files += platform/linux/icons/64/org.ponia.PoniaFE.png
+        icon128.files += platform/linux/icons/128/org.ponia.PoniaFE.png
 
         icon16.path = $${INSTALL_ICONDIR}/16x16/apps/
         icon32.path = $${INSTALL_ICONDIR}/32x32/apps/
@@ -30,8 +30,8 @@ unix:!macx {
         OTHER_FILES += $${icon16.files} $${icon32.files} $${icon48.files} $${icon64.files} $${icon128.files}
     }
     !isEmpty(INSTALL_DESKTOPDIR) {
-        desktop_file.input = platform/linux/org.pegasus_frontend.Pegasus.desktop.qmake.in
-        desktop_file.output = $${OUT_PWD}/org.pegasus_frontend.Pegasus.desktop
+        desktop_file.input = platform/linux/org.ponia.PoniaFE.desktop.qmake.in
+        desktop_file.output = $${OUT_PWD}/org.ponia.PoniaFE.desktop
         OTHER_FILES += $${desktop_file.input}
 
         QMAKE_SUBSTITUTES += desktop_file
@@ -40,7 +40,7 @@ unix:!macx {
         INSTALLS += desktop
     }
     !isEmpty(INSTALL_APPSTREAMDIR) {
-        appstream.files += platform/linux/org.pegasus_frontend.Pegasus.metainfo.xml
+        appstream.files += platform/linux/org.ponia.PoniaFE.metainfo.xml
         appstream.path = $${INSTALL_APPSTREAMDIR}
         OTHER_FILES += $${appstream.files}
         INSTALLS += appstream
@@ -82,11 +82,11 @@ android {
         platform/android/res/mipmap-xxxhdpi/icon_fg.png \
         platform/android/res/mipmap-anydpi-v26/icon.xml \
         platform/android/res/mipmap-xhdpi/banner.png \
-        platform/android/src/org/pegasus_frontend/android/App.java \
-        platform/android/src/org/pegasus_frontend/android/BatteryInfo.java \
-        platform/android/src/org/pegasus_frontend/android/IntentHelper.java \
-        platform/android/src/org/pegasus_frontend/android/LaunchFileProvider.java \
-        platform/android/src/org/pegasus_frontend/android/MainActivity.java \
+        platform/android/src/org/ponia/PoniaEmu/App.java \
+        platform/android/src/org/ponia/PoniaEmu/BatteryInfo.java \
+        platform/android/src/org/ponia/PoniaEmu/IntentHelper.java \
+        platform/android/src/org/ponia/PoniaEmu/LaunchFileProvider.java \
+        platform/android/src/org/ponia/PoniaEmu/MainActivity.java \
         platform/android/res/values/colors.xml \
         platform/android/res/values/themes.xml \
         platform/android/res/values/libs.xml \

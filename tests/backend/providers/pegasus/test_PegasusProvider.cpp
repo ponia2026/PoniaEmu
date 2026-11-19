@@ -127,6 +127,7 @@ private slots:
     void custom_assets_multi();
     void custom_directories();
     void multifile();
+    void ponia_alias();
     void multicoll();
     void nonASCII();
     void relative_files_only();
@@ -137,7 +138,7 @@ private slots:
 
 void test_PegasusProvider::empty()
 {
-    QTest::ignoreMessage(QtInfoMsg, "Pegasus Metafiles: No metadata files found");
+    QTest::ignoreMessage(QtInfoMsg, "Ponia Metafiles: No metadata files found");
 
     providers::SearchContext sctx({ QStringLiteral(":/empty") });
     providers::pegasus::PegasusProvider().run(sctx);
@@ -149,7 +150,7 @@ void test_PegasusProvider::empty()
 
 void test_PegasusProvider::simple()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/simple/metadata.pegasus.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/simple/metadata.pegasus.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/simple")});
     providers::pegasus::PegasusProvider().run(sctx);
@@ -194,13 +195,13 @@ void test_PegasusProvider::simple()
 
 void test_PegasusProvider::with_meta()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/with_meta/metadata.pegasus.txt"));
-    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Pegasus Metafiles: `%1`, line 62: Duplicate file entry detected: `horse.ext`", ":/with_meta/metadata.pegasus.txt"));
-    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Pegasus Metafiles: `%1`, line 65: Failed to parse the rating value", ":/with_meta/metadata.pegasus.txt"));
-    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Pegasus Metafiles: `%1`, line 67: Incorrect date format, should be YYYY, YYYY-MM or YYYY-MM-DD", ":/with_meta/metadata.pegasus.txt"));
-    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Pegasus Metafiles: `%1`, line 68: Incorrect date format, should be YYYY, YYYY-MM or YYYY-MM-DD", ":/with_meta/metadata.pegasus.txt"));
-    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Pegasus Metafiles: `%1`, line 70: Duplicate file entry detected: `horse.ext`", ":/with_meta/metadata.pegasus.txt"));
-    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Pegasus Metafiles: `%1`, line 71: Unrecognized game property `asd`, ignored", ":/with_meta/metadata.pegasus.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/with_meta/metadata.pegasus.txt"));
+    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Ponia Metafiles: `%1`, line 62: Duplicate file entry detected: `horse.ext`", ":/with_meta/metadata.pegasus.txt"));
+    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Ponia Metafiles: `%1`, line 65: Failed to parse the rating value", ":/with_meta/metadata.pegasus.txt"));
+    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Ponia Metafiles: `%1`, line 67: Incorrect date format, should be YYYY, YYYY-MM or YYYY-MM-DD", ":/with_meta/metadata.pegasus.txt"));
+    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Ponia Metafiles: `%1`, line 68: Incorrect date format, should be YYYY, YYYY-MM or YYYY-MM-DD", ":/with_meta/metadata.pegasus.txt"));
+    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Ponia Metafiles: `%1`, line 70: Duplicate file entry detected: `horse.ext`", ":/with_meta/metadata.pegasus.txt"));
+    QTest::ignoreMessage(QtWarningMsg, PATHMSG("Ponia Metafiles: `%1`, line 71: Unrecognized game property `asd`, ignored", ":/with_meta/metadata.pegasus.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/with_meta")});
     providers::pegasus::PegasusProvider().run(sctx);
@@ -331,7 +332,7 @@ void test_PegasusProvider::with_meta()
 
 void test_PegasusProvider::custom_assets()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/custom_assets/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/custom_assets/metadata.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/custom_assets")});
     providers::pegasus::PegasusProvider().run(sctx);
@@ -348,7 +349,7 @@ void test_PegasusProvider::custom_assets()
 
 void test_PegasusProvider::custom_assets_multi()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/custom_assets_multi/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/custom_assets_multi/metadata.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/custom_assets_multi")});
     providers::pegasus::PegasusProvider().run(sctx);
@@ -378,7 +379,7 @@ void test_PegasusProvider::custom_assets_multi()
 
 void test_PegasusProvider::custom_directories()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/custom_dirs/coll/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/custom_dirs/coll/metadata.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/custom_dirs/coll")});
     providers::pegasus::PegasusProvider().run(sctx);
@@ -407,7 +408,7 @@ void test_PegasusProvider::custom_directories()
 
 void test_PegasusProvider::multifile()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/multifile/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/multifile/metadata.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/multifile")});
     providers::pegasus::PegasusProvider().run(sctx);
@@ -423,11 +424,24 @@ void test_PegasusProvider::multifile()
     QVERIFY(std::find(child_vec.cbegin(), child_vec.cend(), games.at(1)) != child_vec.cend());
 }
 
+void test_PegasusProvider::ponia_alias()
+{
+    // PoniaFE: `metadata.ponia.txt` should work the same as `metadata.pegasus.txt`
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/ponia_alias/metadata.ponia.txt"));
+
+    providers::SearchContext sctx({QStringLiteral(":/ponia_alias")});
+    providers::pegasus::PegasusProvider().run(sctx);
+    const auto [collections, games] = sctx.finalize(this);
+
+    QCOMPARE(collections.size(), 1);
+    QCOMPARE(games.size(), 2);
+}
+
 void test_PegasusProvider::multicoll()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/multicoll/c1/metadata.txt"));
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/multicoll/c2/metadata.txt"));
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/multicoll/games/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/multicoll/c1/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/multicoll/c2/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/multicoll/games/metadata.txt"));
 
     providers::SearchContext sctx({
         QStringLiteral(":/multicoll/c1"),
@@ -487,7 +501,6 @@ void test_PegasusProvider::nonASCII()
         QFile metafile(metapath);
         QVERIFY(metafile.open(QFile::WriteOnly | QFile::Text));
         QTextStream stream(&metafile);
-        stream.setCodec("UTF-8");
         stream << QStringLiteral("collection: Test\nextension: ext\n\n");
 
         for (const TestEntry& entry : entries) {
@@ -514,7 +527,7 @@ void test_PegasusProvider::nonASCII()
     }
 
 
-    const QString ignored_msg = QStringLiteral("Pegasus Metafiles: Found `%1`")
+    const QString ignored_msg = QStringLiteral("Ponia Metafiles: Found `%1`")
         .arg(QDir::toNativeSeparators(tempdir.path() + QStringLiteral("/metadata.txt")));
     QTest::ignoreMessage(QtInfoMsg, qUtf8Printable(ignored_msg));
 
@@ -553,7 +566,7 @@ void test_PegasusProvider::nonASCII()
 
 void test_PegasusProvider::relative_files_only()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/relative_files/coll/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/relative_files/coll/metadata.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/relative_files/coll")});
     providers::pegasus::PegasusProvider().run(sctx);
@@ -575,7 +588,7 @@ void test_PegasusProvider::relative_files_only()
 
 void test_PegasusProvider::relative_files_with_dirs()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/relative_files_with_dirs/coll/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/relative_files_with_dirs/coll/metadata.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/relative_files_with_dirs/coll")});
     providers::pegasus::PegasusProvider().run(sctx);
@@ -596,7 +609,7 @@ void test_PegasusProvider::relative_files_with_dirs()
 
 void test_PegasusProvider::autoparenting()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/autoparenting/metadata.txt"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/autoparenting/metadata.txt"));
 
     providers::SearchContext sctx({QStringLiteral(":/autoparenting")});
     providers::pegasus::PegasusProvider().run(sctx);
@@ -642,8 +655,8 @@ void test_PegasusProvider::autoparenting()
 
 void test_PegasusProvider::entryless_games()
 {
-    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Pegasus Metafiles: Found `%1`", ":/entryless/metadata.txt"));
-    QTest::ignoreMessage(QtWarningMsg, PATHMSG2("Pegasus Metafiles: `%1`, line 5: Game file `%2` doesn't seem to exist", ":/entryless/metadata.txt", ":/entryless/test.ext"));
+    QTest::ignoreMessage(QtInfoMsg, PATHMSG("Ponia Metafiles: Found `%1`", ":/entryless/metadata.txt"));
+    QTest::ignoreMessage(QtWarningMsg, PATHMSG2("Ponia Metafiles: `%1`, line 5: Game file `%2` doesn't seem to exist", ":/entryless/metadata.txt", ":/entryless/test.ext"));
     QTest::ignoreMessage(QtWarningMsg, "The collection 'My Games' has no valid games, ignored");
 
     providers::SearchContext sctx({QStringLiteral(":/entryless")});

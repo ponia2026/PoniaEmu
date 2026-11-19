@@ -156,7 +156,7 @@ void FolderListModel::cd(const QString& dirName)
         // adding dotdot manually to avoid getting stuck in the file system
         m_files.emplace_back(QStringLiteral(".."), true);
 
-        for (const auto& fi : qAsConst(filist))
+        for (const auto& fi : std::as_const(filist))
             m_files.emplace_back(fi.fileName(), fi.isDir());
     }
 

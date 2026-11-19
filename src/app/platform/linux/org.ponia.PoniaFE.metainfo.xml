@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.ponia.PoniaFE</id>
+  <name>PoniaFE</name>
+  <metadata_license>CC-BY-SA-3.0</metadata_license>
+  <project_license>GPL-3.0+</project_license>
+  <summary>Customizable graphical frontend for launching emulators</summary>
+  <description>
+    <p>PoniaFE is a Qt 6 port of Pegasus Frontend by Mátyás Mustoha. It is a graphical frontend for browsing your game library (especially retro games) and launching them from one place, focusing on customizability, embedded devices and high performance.</p>
+    <p>Themes and metadata files made for Pegasus keep working in PoniaFE.</p>
+  </description>
+  <content_rating type="oars-1.1" />
+
+  <launchable type="desktop-id">org.ponia.PoniaFE.desktop</launchable>
+  <provides>
+    <binary>poniafe</binary>
+  </provides>
+
+  <categories>
+    <category>Game</category>
+    <category>Player</category>
+  </categories>
+  <keywords>
+    <keyword>emulator</keyword>
+    <keyword>retro</keyword>
+    <keyword>game</keyword>
+    <keyword>frontend</keyword>
+    <keyword>player</keyword>
+  </keywords>
+
+  <url type="homepage">https://ponia-frontend.org/</url>
+  <url type="bugtracker">https://github.com/ponia2026/PoniaEmu/issues</url>
+  <developer_name>PoniaFE contributors (based on Pegasus Frontend by Mátyás Mustoha)</developer_name>
+</component>

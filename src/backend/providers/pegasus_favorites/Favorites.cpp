@@ -47,9 +47,15 @@ Favorites::Favorites(QObject* parent)
 {}
 
 Favorites::Favorites(QString db_path, QObject* parent)
-    : Provider(QLatin1String("pegasus_favorites"), QStringLiteral("Pegasus Favorites"), PROVIDER_FLAG_INTERNAL | PROVIDER_FLAG_HIDE_PROGRESS, parent)
+    : Provider(QLatin1String("pegasus_favorites"), QStringLiteral("Ponia Favorites"), PROVIDER_FLAG_INTERNAL | PROVIDER_FLAG_HIDE_PROGRESS, parent)
     , m_db_path(std::move(db_path))
 {}
+
+Favorites::~Favorites()
+{
+    // the writer thread uses `this`, don't let it outlive the object
+    m_writer.waitForFinished();
+}
 
 Provider& Favorites::run(SearchContext& sctx)
 {
@@ -65,7 +71,6 @@ Provider& Favorites::run(SearchContext& sctx)
     const QDir base_dir = QFileInfo(m_db_path).dir();
 
     QTextStream db_stream(&db_file);
-    db_stream.setCodec("UTF-8");
 
     QString line;
     while (db_stream.readLineInto(&line)) {
@@ -120,7 +125,7 @@ void Favorites::start_processing()
     m_active_task = m_pending_task;
     m_pending_task.clear();
 
-    QtConcurrent::run([this]{
+    m_writer = QtConcurrent::run([this]{
         emit startedWriting();
 
         while (true) {
@@ -132,9 +137,8 @@ void Favorites::start_processing()
             }
 
             QTextStream db_stream(&db_file);
-            db_stream.setCodec("UTF-8");
 
-            for (const QString& fav : qAsConst(m_active_task))
+            for (const QString& fav : std::as_const(m_active_task))
                 db_stream << fav << Qt::endl;
 
             QMutexLocker lock(&m_task_guard);

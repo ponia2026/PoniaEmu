@@ -20,6 +20,7 @@
 #include "CliArgs.h"
 #include "model/gaming/Collection.h"
 #include "model/gaming/Game.h"
+#include "model/cores/CoreInstaller.h"
 #include "model/device/DeviceInfo.h"
 #include "model/keys/Keys.h"
 #include "model/memory/Memory.h"
@@ -38,6 +39,7 @@ class ApiObject : public QObject {
     Q_OBJECT
 
     QML_CONST_PROPERTY(model::DeviceInfo, device)
+    QML_CONST_PROPERTY(model::CoreInstaller, cores)
     QML_CONST_PROPERTY(model::Keys, keys)
     QML_READONLY_PROPERTY(model::Memory, memory)
     Q_PROPERTY(ObjectListModel* collections READ collections CONSTANT)

@@ -1,0 +1,4 @@
+module QtGraphicalEffects
+# Qt 6 moved QtGraphicalEffects to Qt5Compat.GraphicalEffects.
+# Forward the old module name so themes written for Qt 5 keep working.
+import Qt5Compat.GraphicalEffects

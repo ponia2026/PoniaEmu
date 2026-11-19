@@ -1,0 +1,15 @@
+module QtMultimedia
+# Replacement module definition for QtMultimedia, see README.md
+plugin quickmultimediaplugin
+classname QMultimediaQuickModule
+depends QtQuick
+# Qt 6 types: the real C++ types come from the plugin, Video from its resources
+Video 6.0 qrc:/qt-project.org/imports/QtMultimedia/Video.qml
+# Qt 5 API, for themes importing QtMultimedia 5.x
+Audio 5.0 Qt5Player.qml
+MediaPlayer 5.0 Qt5Player.qml
+SoundEffect 5.0 Qt5SoundEffect.qml
+Playlist 5.0 Playlist.qml
+PlaylistItem 5.0 PlaylistItem.qml
+Video 5.0 Qt5Video.qml
+VideoOutput 5.0 Qt5VideoOutput.qml

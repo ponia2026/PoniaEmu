@@ -29,6 +29,8 @@
 #include "types/AssetType.h"
 #include "utils/PathTools.h"
 
+#include <QFileInfo>
+#include <QDir>
 #include <QUrl>
 
 
@@ -361,8 +363,8 @@ void Metadata::apply_game_entry(ParserState& ps, const metafile::Entry& entry, S
             {
                 const auto rx_match = rx_count_range.match(first_line_of(ps, entry));
                 if (rx_match.hasMatch()) {
-                    const short a = rx_match.capturedRef(1).toShort();
-                    const short b = rx_match.capturedRef(3).toShort();
+                    const short a = rx_match.capturedView(1).toShort();
+                    const short b = rx_match.capturedView(3).toShort();
                     ps.cur_game->setPlayerCount(std::max(a, b));
                 }
             }
@@ -407,7 +409,7 @@ void Metadata::apply_game_entry(ParserState& ps, const metafile::Entry& entry, S
 
                 const auto rx_match_a = rx_percent.match(line);
                 if (rx_match_a.hasMatch()) {
-                    ps.cur_game->setRating(line.leftRef(line.length() - 1).toFloat() / 100.f);
+                    ps.cur_game->setRating(QStringView(line).left(line.length() - 1).toFloat() / 100.f);
                     return;
                 }
                 const auto rx_match_b = rx_float.match(line);
@@ -554,6 +556,21 @@ void Metadata::apply_entry(ParserState& ps, const metafile::Entry& entry, Search
 
 std::vector<FileFilter> Metadata::apply_metafile(const QString& metafile_path, SearchContext& sctx) const
 {
+#ifdef Q_OS_ANDROID
+    // Ports（掌机 Linux 的 PortMaster 套件）在 Android 上不能执行：整个资料夹不显示，等 Linux 版再开放
+    if (QFileInfo(metafile_path).dir().dirName().compare(QLatin1String("Ports"), Qt::CaseInsensitive) == 0)
+        return {};
+#endif
+#if defined(Q_OS_ANDROID) && defined(__arm__) && !defined(__aarch64__)
+    // 32 位 ARM：GameCube 的 Dolphin 核心没有 ARM JIT（官方 2015 起放弃 ARMv7，buildbot 的 v7a 档只有快取解译器，慢到无法玩）→ NGC 整个资料夹不显示
+    {
+        const QString dir_name = QFileInfo(metafile_path).dir().dirName();
+        if (dir_name.compare(QLatin1String("NGC"), Qt::CaseInsensitive) == 0
+            || dir_name.compare(QLatin1String("GC"), Qt::CaseInsensitive) == 0
+            || dir_name.compare(QLatin1String("GameCube"), Qt::CaseInsensitive) == 0)
+            return {};
+    }
+#endif
     ParserState ps(metafile_path);
 
     const auto on_error = [&](const metafile::Error& error){

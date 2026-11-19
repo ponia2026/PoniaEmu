@@ -45,6 +45,10 @@
         <file>multifile/multi.a.ext</file>
         <file>multifile/multi.b.ext</file>
         <file>multifile/single.ext</file>
+        <file>ponia_alias/metadata.ponia.txt</file>
+        <file>ponia_alias/multi.a.ext</file>
+        <file>ponia_alias/multi.b.ext</file>
+        <file>ponia_alias/single.ext</file>
         <file>relative_files/a/game_a.ext</file>
         <file>relative_files/coll/metadata.txt</file>
         <file>relative_files/coll/game_here.ext</file>

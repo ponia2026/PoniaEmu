@@ -42,7 +42,7 @@ FocusScope {
             root.close();
     }
 
-    Keys.onPressed: {
+    Keys.onPressed: (event) => {
         if (api.keys.isCancel(event) && !event.isAutoRepeat) {
             event.accepted = true;
             root.closeMaybe();
@@ -89,8 +89,8 @@ FocusScope {
         Text {
             id: info
 
-            text: qsTr("Pegasus will look for collection files (metadata.pegasus.txt or "
-                     + "metadata.txt)\nin the following directories:") + api.tr
+            text: qsTr("Ponia will look for collection files (metadata.ponia.txt or "
+                     + "metadata.pegasus.txt)\nin the following directories:") + api.tr
             color: "#eee"
             font.family: globalFonts.sans
             font.pixelSize: vpx(18)
@@ -151,7 +151,7 @@ FocusScope {
 
                     MouseArea {
                         anchors.fill: parent
-                        onClicked: {
+                        onClicked: (mouse) => {
                             const new_idx = list.indexAt(mouse.x, list.contentY + mouse.y);
                             if (new_idx >= 0) {
                                 list.currentIndex = new_idx;
@@ -220,8 +220,9 @@ FocusScope {
         Behavior on opacity { PropertyAnimation { duration: 300 } }
 
         onCancel: list.focus = true
-        onPick: {
-            Internal.settings.addGameDir(dir_path);
+        onPick: (dir_paths) => {
+            for (var i = 0; i < dir_paths.length; i++)
+                Internal.settings.addGameDir(dir_paths[i]);
             list.focus = true;
         }
     }

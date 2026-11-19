@@ -46,7 +46,7 @@ void ApiObject::setGameData(std::vector<model::Collection*>&& collections, std::
     Q_ASSERT(m_all_games && m_all_games->entries().empty());
     Q_ASSERT(m_collections && m_collections->entries().empty());
 
-    for (model::Game* const game : qAsConst(games)) {
+    for (model::Game* const game : std::as_const(games)) {
         game->moveToThread(thread());
         game->setParent(this);
 
@@ -61,7 +61,7 @@ void ApiObject::setGameData(std::vector<model::Collection*>&& collections, std::
         }
     }
 
-    for (model::Collection* const coll : qAsConst(collections)) {
+    for (model::Collection* const coll : std::as_const(collections)) {
         coll->moveToThread(thread());
         coll->setParent(this);
     }
@@ -70,6 +70,7 @@ void ApiObject::setGameData(std::vector<model::Collection*>&& collections, std::
     m_collections->update(std::move(collections));
 
     Log::info(LOGMSG("%1 games found").arg(m_all_games->count()));
+    m_cores.scan(m_collections->entries());
     emit gamedataReady();
 }
 

@@ -36,7 +36,7 @@ FocusScope {
     signal requestReboot
     signal requestQuit
 
-    Keys.onPressed: {
+    Keys.onPressed: (event) => {
         if (event.isAutoRepeat)
             return;
 
@@ -162,7 +162,7 @@ FocusScope {
                 },
                 SecondaryMenuItem {
                     id: mbQuitExit
-                    text: qsTr("Exit Pegasus") + api.tr
+                    text: qsTr("Exit Ponia") + api.tr
                     onActivated: requestQuit()
 
                     readonly property bool callable: Internal.meta.allowAppClose

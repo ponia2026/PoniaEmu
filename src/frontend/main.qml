@@ -25,7 +25,7 @@ Window {
     visible: true
     width: 1280
     height: 720
-    title: "Pegasus"
+    title: "PoniaFE"
     color: "#000"
 
     visibility: Internal.settings.fullscreen
@@ -95,8 +95,9 @@ Window {
             }
             onApiThemePathChanged: source = Qt.binding(getThemeFile)
 
-            Keys.onPressed: {
-                if (api.keys.isCancel(event) || api.keys.isMenu(event)) {
+            Keys.onPressed: (event) => {
+                if (api.keys.isCancel(event) || api.keys.isMenu(event)
+                        || (api.collections.count === 0 && api.keys.isRight(event))) {   // no games: Right opens the menu too
                     event.accepted = true;
                     mainMenu.focus = true;
                 }

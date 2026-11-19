@@ -38,7 +38,7 @@ std::vector<model::LocaleEntry> find_available_locales()
     std::vector<model::LocaleEntry> locales;
     locales.reserve(static_cast<size_t>(qm_files.count()));
 
-    for (const QString& filename : qAsConst(qm_files)) {
+    for (const QString& filename : std::as_const(qm_files)) {
         const int locale_tag_len = filename.length() - QM_PREFIX_LEN - QM_SUFFIX_LEN;
         Q_ASSERT(locale_tag_len > 0);
 
@@ -81,9 +81,38 @@ void Locales::select_preferred_locale()
     if (select_locale(AppSettings::general.locale))
         return;
 
-    // B. Try to use the system default language
-    if (select_locale(QLocale().bcp47Name()))
-        return;
+    // B. First start (nothing saved): follow the system language. The candidate list comes from the
+    //    system's preferred UI languages (e.g. "zh-Hant-TW", "pt-PT"); each one is matched exactly, then
+    //    by the Chinese script/region rule (Traditional -> zh-TW, otherwise zh), then by language only.
+    {
+        QStringList candidates = QLocale::system().uiLanguages();
+        candidates.prepend(QLocale().bcp47Name());
+        for (const QString& raw : std::as_const(candidates)) {
+            const QString tag = QString(raw).replace(QLatin1Char('_'), QLatin1Char('-'));
+            if (select_locale(tag))
+                return;
+
+            const QString lang = tag.section(QLatin1Char('-'), 0, 0).toLower();
+            if (lang == QLatin1String("zh")) {
+                const bool traditional = tag.contains(QLatin1String("Hant"), Qt::CaseInsensitive)
+                    || tag.endsWith(QLatin1String("-TW"), Qt::CaseInsensitive)
+                    || tag.endsWith(QLatin1String("-HK"), Qt::CaseInsensitive)
+                    || tag.endsWith(QLatin1String("-MO"), Qt::CaseInsensitive);
+                if (select_locale(traditional ? QStringLiteral("zh-TW") : QStringLiteral("zh")))
+                    return;
+                if (select_locale(QStringLiteral("zh")))   // only one Chinese build available
+                    return;
+                continue;
+            }
+            for (size_t idx = 0; idx < m_locales.size(); idx++) {
+                const QString& have = m_locales.at(idx).bcp47tag;
+                if (have.section(QLatin1Char('-'), 0, 0).toLower() == lang) {
+                    m_current_idx = idx;
+                    return;
+                }
+            }
+        }
+    }
 
     // C. Fall back to the default
     if (select_locale(AppSettings::general.DEFAULT_LOCALE))
@@ -111,9 +140,13 @@ void Locales::load_selected_locale()
 {
     const auto& locale = m_locales.at(m_current_idx);
 
-    m_translator.load(QStringLiteral("pegasus_") + locale.bcp47tag,
-                      QStringLiteral(":/i18n"),
-                      QStringLiteral("-"));
+    const bool loaded = m_translator.load(QStringLiteral("pegasus_") + locale.bcp47tag,
+                                          QStringLiteral(":/i18n"),
+                                          QStringLiteral("-"));
+    // NOTE: English is the source language, it has no translation file
+    if (!loaded && locale.bcp47tag != QLatin1String("en"))
+        Log::warning(LOGMSG("Could not load the translation file of locale `%1`").arg(locale.bcp47tag));
+
     Log::info(LOGMSG("Locale set to `%2`").arg(locale.bcp47tag));
 }
 

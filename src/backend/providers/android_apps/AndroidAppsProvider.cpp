@@ -25,16 +25,16 @@
 #include "providers/android_apps/AndroidAppsMetadata.h"
 
 #include <QFileInfo>
-#include <QtAndroidExtras/QAndroidJniEnvironment>
-#include <QtAndroidExtras/QAndroidJniObject>
+#include <QJniEnvironment>
+#include <QJniObject>
 
 
 namespace {
 HashMap<QString, model::Game*> find_apps_for(model::Collection& collection, providers::SearchContext& sctx)
 {
-    constexpr auto JNI_CLASS = "org/pegasus_frontend/android/MainActivity";
+    constexpr auto JNI_CLASS = "org/ponia/PoniaEmu/MainActivity";
     constexpr auto APPLIST_METHOD = "appList";
-    constexpr auto APPLIST_SIGNATURE = "()[Lorg/pegasus_frontend/android/App;";
+    constexpr auto APPLIST_SIGNATURE = "()[Lorg/ponia/PoniaEmu/App;";
     constexpr auto APP_NAME = "appName";
     constexpr auto APP_PACKAGE = "packageName";
     constexpr auto APP_LAUNCH_ACT = "launchAction";
@@ -43,13 +43,13 @@ HashMap<QString, model::Game*> find_apps_for(model::Collection& collection, prov
 
     HashMap<QString, model::Game*> app_game_map;
 
-    QAndroidJniEnvironment jni_env;
-    const auto jni_applist_raw = QAndroidJniObject::callStaticObjectMethod(JNI_CLASS, APPLIST_METHOD, APPLIST_SIGNATURE);
+    QJniEnvironment jni_env;
+    const auto jni_applist_raw = QJniObject::callStaticObjectMethod(JNI_CLASS, APPLIST_METHOD, APPLIST_SIGNATURE);
     const auto jni_applist = jni_applist_raw.object<jobjectArray>();
 
     const jsize app_count = jni_env->GetArrayLength(jni_applist);
     for (jsize i = 0; i < app_count; i++) {
-        const QAndroidJniObject jni_app = jni_env->GetObjectArrayElement(jni_applist, i);
+        const QJniObject jni_app = jni_env->GetObjectArrayElement(jni_applist, i);
 
         const QString appname = jni_app.callObjectMethod<jstring>(APP_NAME).toString();
         const QString package = jni_app.callObjectMethod<jstring>(APP_PACKAGE).toString();
@@ -125,7 +125,10 @@ namespace android {
 AndroidAppsProvider::AndroidAppsProvider(QObject* parent)
     : Provider(QLatin1String("androidapps"), QStringLiteral("Android Apps"), PROVIDER_FLAG_CACHEABLE, parent)
     , m_metahelper(display_name())
-{}
+{
+    // 默认关闭：它会把设备上所有 App 当成游戏列出，多数人不想要；设置里可手动开启
+    setEnabled(false);
+}
 
 Provider& AndroidAppsProvider::run(SearchContext& sctx)
 {

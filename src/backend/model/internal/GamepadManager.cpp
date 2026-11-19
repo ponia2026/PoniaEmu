@@ -73,7 +73,7 @@ GamepadManager::GamepadManager(QObject* parent)
     connect(m_backend, &GamepadManagerBackend::axisChanged,
             this, &GamepadManager::bkOnAxisChanged);
 
-#ifndef Q_OS_ANDROID
+    // 安卓版也走 SDL，手柄按键由这里转成界面导航（遥控器仍走系统按键事件）
     connect(m_backend, &GamepadManagerBackend::buttonChanged,
             &padbuttonnav, &GamepadButtonNavigation::onButtonChanged);
     connect(m_backend, &GamepadManagerBackend::axisChanged,
@@ -81,7 +81,6 @@ GamepadManager::GamepadManager(QObject* parent)
 
     connect(&padaxisnav, &GamepadAxisNavigation::buttonChanged,
             &padbuttonnav, &GamepadButtonNavigation::onButtonChanged);
-#endif // Q_OS_ANDROID
 }
 
 void GamepadManager::start(const backend::CliArgs& args)

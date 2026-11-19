@@ -12,9 +12,11 @@ function(pegasus_add_common_props target)
         QT_NO_NARROWING_CONVERSIONS_IN_CONNECT
         QT_NO_PROCESS_COMBINED_ARGUMENT_START
         QT_NO_URL_CAST_FROM_STRING
-        GIT_REVISION="${PEGASUS_GIT_REVISION}"
-        GIT_DATE="${PEGASUS_GIT_DATE}"
     )
+
+    # ponia_version.h 每次编译都重新产生（见 cmake/PoniaVersion.cmake）
+    add_dependencies(${target} ponia_version)
+    target_include_directories(${target} PRIVATE "${PONIA_VERSION_HEADER_DIR}")
 
     target_compile_features(${target} PUBLIC cxx_std_17)
     set_target_properties(${target} PROPERTIES CXX_EXTENSIONS OFF)

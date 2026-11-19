@@ -39,7 +39,7 @@ FocusScope {
 
     enabled: focus
 
-    Keys.onPressed: {
+    Keys.onPressed: (event) => {
         if (api.keys.isCancel(event) && !event.isAutoRepeat) {
             event.accepted = true;
             root.close();
@@ -125,15 +125,15 @@ FocusScope {
         },
         SettingsEntry {
             label: QT_TR_NOOP("Scan for games on launch")
-            desc: QT_TR_NOOP("Scan for games every time Pegasus starts. You can disable this to improve loading times, but you will need to manually reload the game list to pick up changes.")
+            desc: QT_TR_NOOP("Scan for games every time Ponia starts. You can disable this to improve loading times, but you will need to manually reload the game list to pick up changes.")
             type: SettingsEntry.Type.Bool
             boolValue: Internal.settings.scanOnLaunch
             boolSetter: (val) => Internal.settings.scanOnLaunch = val
             section: "gaming"
         },
         SettingsEntry {
-            label: QT_TR_NOOP("Hide Pegasus after launching a game")
-            desc: QT_TR_NOOP("Keeping Pegasus visible for a while hides the desktop until the game appears. On platforms that allow only one program on the screen, Pegasus always hides immediately.")
+            label: QT_TR_NOOP("Hide Ponia after launching a game")
+            desc: QT_TR_NOOP("Keeping Ponia visible for a while hides the desktop until the game appears. On platforms that allow only one program on the screen, Ponia always hides immediately.")
             type: SettingsEntry.Type.Select
             selectBox: hideDelayBox
             selectValue: root.hideDelayLabel(Internal.settings.hideDelayAfterLaunch)

@@ -57,18 +57,7 @@ FocusScope {
         visible: opacity > 0.001 && width > 0
         Behavior on opacity { NumberAnimation { duration: 300 } }
 
-        Text {
-            id: revision
-
-            text: Internal.meta.gitRevision + ", " + Internal.meta.gitDate
-            color: "#eee"
-            font.pixelSize: vpx(12)
-            font.family: global.fonts.mono
-
-            anchors.left: parent.left
-            anchors.bottom: parent.bottom
-            anchors.margins: vpx(10)
-        }
+        // (The version and build date are shown on the Help screen only.)
 
         MouseArea {
             anchors.fill: parent

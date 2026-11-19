@@ -16,6 +16,7 @@
 
 
 #include "backend/Backend.h"
+#include "ponia_version.h"
 #include "backend/Paths.h"
 #include "backend/platform/TerminalKbd.h"
 
@@ -48,10 +49,12 @@ int main(int argc, char *argv[])
 #ifdef PEGASUS_USING_CMAKE  // TODO: Unify the build system
     Q_INIT_RESOURCE(assets);
     Q_INIT_RESOURCE(locales);
-    Q_INIT_RESOURCE(qmlutils_qmlcache);
-    Q_INIT_RESOURCE(frontend_qmlcache);
-    Q_INIT_RESOURCE(themes_qmlcache);
 #endif
+
+    // Let themes read small local files (e.g. the optional overrides.json of the bundled theme).
+    // Qt disables XMLHttpRequest GET on local files unless this is set.
+    if (qEnvironmentVariableIsEmpty("QML_XHR_ALLOW_FILE_READ"))
+        qputenv("QML_XHR_ALLOW_FILE_READ", "1");
 
     TerminalKbd::on_startup();
 
@@ -60,10 +63,10 @@ int main(int argc, char *argv[])
     QSettings::setDefaultFormat(QSettings::IniFormat);
 
     QGuiApplication app(argc, argv);
-    app.setApplicationName(QStringLiteral("pegasus-frontend"));
-    app.setApplicationVersion(QStringLiteral(GIT_REVISION));
-    app.setOrganizationName(QStringLiteral("pegasus-frontend"));
-    app.setOrganizationDomain(QStringLiteral("pegasus-frontend.org"));
+    app.setApplicationName(QStringLiteral("poniafe"));
+    app.setApplicationVersion(QStringLiteral(PONIA_VERSION));
+    app.setOrganizationName(QStringLiteral("poniafe"));
+    app.setOrganizationDomain(QStringLiteral("ponia-frontend.org"));
     app.setWindowIcon(QIcon(QStringLiteral(":/icon.png")));
 
     if (!request_runtime_permissions())

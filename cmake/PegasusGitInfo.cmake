@@ -6,8 +6,31 @@ execute_process(COMMAND
     --always
     --dirty
     OUTPUT_STRIP_TRAILING_WHITESPACE
-    OUTPUT_VARIABLE PEGASUS_GIT_REVISION
+    OUTPUT_VARIABLE PEGASUS_GIT_DESCRIBE
 )
+
+# PoniaFE 自己的版本号从 1.0.0 起；显示为「1.0.0+提交号」，有未提交改动时加 -dirty
+# PONIAFE_VERSION 改由 cmake/PoniaVersion.cmake 提供（产品名与版本号只写一次）
+execute_process(COMMAND
+    git
+    --git-dir "${PROJECT_SOURCE_DIR}/.git"
+    --work-tree "${PROJECT_SOURCE_DIR}"
+    rev-parse
+    --short=8 HEAD
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    OUTPUT_VARIABLE PONIAFE_GIT_SHORT
+)
+string(FIND "${PEGASUS_GIT_DESCRIBE}" "-dirty" PONIAFE_DIRTY_POS)
+if(PONIAFE_DIRTY_POS GREATER -1)
+    set(PONIAFE_DIRTY_SUFFIX "-dirty")
+else()
+    set(PONIAFE_DIRTY_SUFFIX "")
+endif()
+if(PONIAFE_GIT_SHORT)
+    set(PEGASUS_GIT_REVISION "${PONIAFE_VERSION}+${PONIAFE_GIT_SHORT}${PONIAFE_DIRTY_SUFFIX}")
+else()
+    set(PEGASUS_GIT_REVISION "${PONIAFE_VERSION}")
+endif()
 
 execute_process(COMMAND
     git

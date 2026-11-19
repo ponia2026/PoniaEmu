@@ -21,3 +21,7 @@ build*/
 *.qmlc
 *.jsc
 *.autosave
+
+# 内建核心由 etc/android/fetch-bundled-cores.sh 下载，不进版控
+src/app/platform/android/libs/
+src/app/platform/android/assets/packs/

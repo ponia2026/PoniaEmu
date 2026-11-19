@@ -66,7 +66,7 @@ QFileInfo shell_to_finfo(const QDir& base_dir, const QString& shell_filepath)
         return {};
 
     const QString real_path = shell_filepath.startsWith(QLatin1String("~/"))
-        ? paths::homePath() + shell_filepath.midRef(1)
+        ? paths::homePath() + shell_filepath.mid(1)
         : shell_filepath;
     return QFileInfo(base_dir, real_path);
 }
@@ -126,7 +126,7 @@ Metadata::Metadata(QString log_tag, std::vector<QString> possible_config_dirs)
 
 HashMap<MetaType, QString, EnumHash> Metadata::parse_gamelist_game_node(QXmlStreamReader& xml) const
 {
-    Q_ASSERT(xml.isStartElement() && xml.name() == "game");
+    Q_ASSERT(xml.isStartElement() && xml.name() == QLatin1String("game"));
 
     HashMap<MetaType, QString, EnumHash> xml_props;
     while (xml.readNextStartElement()) {

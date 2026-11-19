@@ -43,7 +43,13 @@ struct General {
     bool mouse_support = true;
     bool verify_files = true;
     bool scan_on_launch = true;
+#ifdef Q_OS_ANDROID
+    // Android runs games as separate apps, so the frontend does not need to be torn down (and tearing it down
+    // deadlocks in ~QMediaPlayer on Qt 6.4: the screen stays black after the game ends).
+    int hide_delay_after_launch = -1; // seconds; negative: never hide
+#else
     int hide_delay_after_launch = 0; // seconds; negative: never hide
+#endif
     bool show_missing_games = false;
     QString locale;
     QString theme;

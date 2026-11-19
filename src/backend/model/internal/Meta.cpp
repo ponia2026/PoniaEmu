@@ -19,12 +19,17 @@
 
 #include "Log.h"
 #include "Paths.h"
+#include "ponia_version.h"
 
 
 namespace model {
 
 const QString Meta::m_git_revision(QStringLiteral(GIT_REVISION));
 const QString Meta::m_git_date(QStringLiteral(GIT_DATE));
+const QString Meta::m_product_name(QStringLiteral(PONIA_PRODUCT_NAME));
+const QString Meta::m_version(QStringLiteral(PONIA_VERSION));
+const QString Meta::m_build_date(QStringLiteral(PONIA_BUILD_DATE));
+const QString Meta::m_commit(QStringLiteral(PONIA_GIT_SHORT));
 
 Meta::Meta(const backend::CliArgs& args, QObject* parent)
     : QObject(parent)

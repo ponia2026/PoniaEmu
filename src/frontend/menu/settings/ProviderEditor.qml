@@ -40,7 +40,7 @@ FocusScope {
             root.close();
     }
 
-    Keys.onPressed: {
+    Keys.onPressed: (event) => {
         if (api.keys.isCancel(event) && !event.isAutoRepeat) {
             event.accepted = true;
             root.closeMaybe();
@@ -80,7 +80,7 @@ FocusScope {
         Text {
             id: info
 
-            text: qsTr("When looking for games, Pegasus can use the following data sources, if enabled:") + api.tr
+            text: qsTr("When looking for games, Ponia can use the following data sources, if enabled:") + api.tr
             color: "#eee"
             font.family: globalFonts.sans
             font.pixelSize: vpx(18)

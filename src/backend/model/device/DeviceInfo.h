@@ -30,6 +30,8 @@ class DeviceInfo : public QObject {
     Q_PROPERTY(bool batteryCharging READ batteryCharging NOTIFY batteryStatusChanged)
     Q_PROPERTY(float batteryPercent READ batteryPercent NOTIFY batteryLifeChanged)
     Q_PROPERTY(int batterySeconds READ batterySeconds NOTIFY batteryLifeChanged)
+    Q_PROPERTY(NetworkType networkType READ networkType NOTIFY networkChanged)
+    Q_PROPERTY(bool online READ online NOTIFY networkChanged)
 
 public:
     explicit DeviceInfo(QObject* parent = nullptr);
@@ -43,6 +45,17 @@ public:
     };
     Q_ENUM(BatteryStatus)
 
+    // Current connection (QNetworkInformation): what the theme shows in its status area.
+    enum class NetworkType {
+        Unknown,
+        None,
+        Ethernet,
+        WiFi,
+        Mobile,
+        Other,
+    };
+    Q_ENUM(NetworkType)
+
     struct BatteryInfo {
         BatteryStatus status;
         float percent;
@@ -54,17 +67,23 @@ public:
         return m_battery.status == BatteryStatus::Charging || m_battery.status == BatteryStatus::Charged;
     }
     float batteryPercent() const { return m_battery.percent; }
+    NetworkType networkType() const { return m_network_type; }
+    bool online() const { return m_online; }
     int batterySeconds() const { return m_battery.seconds; }
 
 signals:
     void batteryStatusChanged();
     void batteryLifeChanged();
+    void networkChanged();
 
 private slots:
     void poll_battery();
+    void update_network();
 
 private:
     QTimer m_battery_poll;
     BatteryInfo m_battery;
+    NetworkType m_network_type = NetworkType::Unknown;
+    bool m_online = false;
 };
 } // namespace model

@@ -33,8 +33,6 @@
 #include <QTextStream>
 
 #ifdef Q_OS_ANDROID
-#include <QtAndroid>
-#include <QtAndroidExtras/QAndroidIntent>
 #endif
 
 
@@ -51,7 +49,6 @@ void rewrite_gamedircfg(const std::function<void(QTextStream&)>& callback)
     }
 
     QTextStream stream(&config_file);
-    stream.setCodec("UTF-8");
     callback(stream);
     Log::info(LOGMSG("Game directory list saved"));
 }
@@ -156,7 +153,7 @@ QStringList Settings::gameDirs() const
     });
 
     QStringList dirlist;
-    for (const QString& dir : qAsConst(dirset))
+    for (const QString& dir : std::as_const(dirset))
         dirlist.append(dir);
 
     dirlist.sort();
@@ -188,7 +185,7 @@ void Settings::addGameDir(const QString& path)
 
 
     rewrite_gamedircfg([&dirset](QTextStream& stream){
-        for (const QString& dir : qAsConst(dirset)) {
+        for (const QString& dir : std::as_const(dirset)) {
             stream << dir << '\n';
         }
     });
@@ -225,7 +222,7 @@ void Settings::removeGameDirs(const QVariantList& idx_var_list)
 
 
     rewrite_gamedircfg([&dirlist](QTextStream& stream){
-        for (const QString& dir : qAsConst(dirlist)) {
+        for (const QString& dir : std::as_const(dirlist)) {
             stream << dir << '\n';
         }
     });

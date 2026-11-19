@@ -19,6 +19,7 @@
 
 #include "providers/Provider.h"
 
+#include <QFuture>
 #include <QMutex>
 
 
@@ -31,6 +32,7 @@ class Favorites : public Provider {
 public:
     explicit Favorites(QString db_path, QObject* parent = nullptr);
     explicit Favorites(QObject* parent = nullptr);
+    ~Favorites() override;
 
     Provider& run(SearchContext&) final;
 
@@ -46,6 +48,7 @@ private:
     QStringList m_pending_task;
     QStringList m_active_task;
     QMutex m_task_guard;
+    QFuture<void> m_writer;
 
     void start_processing();
 };

@@ -183,9 +183,15 @@ PlaytimeStats::PlaytimeStats(QObject* parent)
 {}
 
 PlaytimeStats::PlaytimeStats(QString db_path, QObject* parent)
-    : Provider(QLatin1String("pegasus_playtime"), QStringLiteral("Pegasus Playtime"), PROVIDER_FLAG_INTERNAL | PROVIDER_FLAG_HIDE_PROGRESS, parent)
+    : Provider(QLatin1String("pegasus_playtime"), QStringLiteral("Ponia Playtime"), PROVIDER_FLAG_INTERNAL | PROVIDER_FLAG_HIDE_PROGRESS, parent)
     , m_db_path(std::move(db_path))
 {}
+
+PlaytimeStats::~PlaytimeStats()
+{
+    // the writer thread uses `this`, don't let it outlive the object
+    m_writer.waitForFinished();
+}
 
 Provider& PlaytimeStats::run(SearchContext& sctx)
 {
@@ -306,7 +312,7 @@ void PlaytimeStats::start_processing()
     m_active_tasks.swap(m_pending_tasks);
     m_active_migrations.swap(m_pending_migrations);
 
-    QtConcurrent::run([this]{
+    m_writer = QtConcurrent::run([this]{
         emit startedWriting();
 
         while (!m_active_tasks.empty() || !m_active_migrations.empty()) {

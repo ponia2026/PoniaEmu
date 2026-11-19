@@ -23,7 +23,7 @@ import QtQuick 2.6
 MenuScreen {
     id: root
 
-    Keys.onPressed: {
+    Keys.onPressed: (event) => {
         if (api.keys.isCancel(event) && !event.isAutoRepeat) {
             event.accepted = true;
             root.close();
@@ -66,12 +66,17 @@ MenuScreen {
                     text: qsTr("About") + api.tr
                 }
                 Text {
-                    property string programInfo: qsTr("Pegasus Frontend, version <tt>%1</tt> (%2)")
-                        .arg(Internal.meta.gitRevision)
-                        .arg(Internal.meta.gitDate)
-                        + api.tr
+                    // 产品名、版本号、编译日期、提交号都来自 ponia_version.h（每次编译重新产生）；
+                    // 整行不翻译：与 APK 文件名同格式 PoniaEmu_v1.0.0-20261118(10f78221).apk
+                    property string programInfo: Internal.meta.productName
+                        + " v" + Internal.meta.version
+                        + " · " + Internal.meta.buildDate
+                        + " · <tt>" + Internal.meta.commit + "</tt>"
 
-                    text: programInfo + "<br>Copyright \u00a9 2017-2020 Mátyás Mustoha"
+                    text: programInfo
+                        + "<br>Copyright \u00a9 2026 Equuleus Works"
+                        + "<br>Based on Pegasus Frontend. Copyright © 2017-2020 Mátyás Mustoha"
+                        + "<br>Ponia is an independent project. It is not affiliated with, or endorsed by, the author of Pegasus Frontend."
                     color: "#eee"
                     font.pixelSize: bodyFontSize
                     font.family: globalFonts.sans
@@ -97,7 +102,7 @@ MenuScreen {
                     padding: bodyFontSize
                 }
                 QrBox {
-                    url: "pegasus-frontend.org/docs"
+                    url: "github.com/ponia2026/PoniaEmu"
                     image: "qrc:/frontend/assets/qr-docs.png"
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
@@ -157,7 +162,7 @@ MenuScreen {
                     Text {
                         text: "You should have received a copy of the full license along with this "
                             + "program. If not, you can also find it on the following address: "
-                            + "<tt>http://pegasus-frontend.org/license</tt>."
+                            + "<tt>https://github.com/ponia2026/PoniaEmu/blob/qt6/LICENSE.md</tt>."
                         color: licenses.textColor
                         lineHeight: licenses.textLineHeight
                         font.pixelSize: licenses.textSize
@@ -221,6 +226,31 @@ MenuScreen {
                         anchors.verticalCenter: parent.verticalCenter
                         leftPadding: bodyFontSize * 0.75
                     }
+                }
+                Text {
+                    text: "Bundled theme: Macaron, copyright © 2026 Equuleus Works. "
+                        + "Fonts: Noto Sans TC (copyright © 2014-2021 Adobe) and "
+                        + "Varela Round (copyright © 2023 The Varela Round Project Authors), "
+                        + "both under the SIL Open Font License 1.1."
+                    color: licenses.textColor
+                    lineHeight: licenses.textLineHeight
+                    font.pixelSize: licenses.textSize
+                    font.family: globalFonts.sans
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    padding: bodyFontSize
+                    topPadding: licenses.textSize
+                }
+                Text {
+                    text: "Uses SDL2 (zlib license)."
+                    color: licenses.textColor
+                    lineHeight: licenses.textLineHeight
+                    font.pixelSize: licenses.textSize
+                    font.family: globalFonts.sans
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    padding: bodyFontSize
+                    topPadding: 0
                 }
                 Text {
                     text: "All trademarks, service marks, trade names, trade dress, product names "

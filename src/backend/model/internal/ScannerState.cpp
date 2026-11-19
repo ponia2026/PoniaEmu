@@ -40,7 +40,10 @@ void ScannerState::onScanStarted()
 
 void ScannerState::onScanProgressChanged(float value, QString stage)
 {
-    Q_ASSERT(value <= 1.f);
+    // Progress can slightly overshoot 1.0 when several providers report at the same time;
+    // clamp it instead of asserting (the assertion aborted debug builds at random).
+    if (value > 1.f)
+        value = 1.f;
 
     if (value > m_progress) {
         m_progress = value;

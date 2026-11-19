@@ -3,8 +3,6 @@ target_sources(pegasus-backend PRIVATE
     CommandTokenizer.h
     DiskCachedNAM.cpp
     DiskCachedNAM.h
-    FakeQKeyEvent.cpp
-    FakeQKeyEvent.h
     FolderListModel.cpp
     FolderListModel.h
     HashMap.h

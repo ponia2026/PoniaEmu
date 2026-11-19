@@ -20,6 +20,7 @@
 #include "providers/Provider.h"
 
 #include <QDateTime>
+#include <QFuture>
 #include <QMutex>
 
 
@@ -32,6 +33,7 @@ class PlaytimeStats : public Provider {
 public:
     explicit PlaytimeStats(QString db_path, QObject* parent = nullptr);
     explicit PlaytimeStats(QObject* parent = nullptr);
+    ~PlaytimeStats() override;
 
     Provider& run(SearchContext&) final;
 
@@ -72,6 +74,7 @@ private:
     std::vector<MigrationQueueEntry> m_active_migrations;
 
     QMutex m_queue_guard;
+    QFuture<void> m_writer;
 
     void start_processing();
 };

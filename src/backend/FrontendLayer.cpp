@@ -25,6 +25,7 @@
 #include "platform/AndroidAppIconProvider.h"
 #endif
 
+#include <QLibraryInfo>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlNetworkAccessManagerFactory>
@@ -62,6 +63,15 @@ void FrontendLayer::rebuild()
     m_engine = new QQmlApplicationEngine(this);
     m_engine->addImportPath(QStringLiteral("lib/qml"));
     m_engine->addImportPath(QStringLiteral("qml"));
+    // Modules emulating Qt 5 ones for older themes (see src/frontend/qmlcompat)
+    m_engine->addImportPath(QStringLiteral("qrc:/qmlcompat"));
+#ifdef Q_OS_ANDROID
+    // 安卓上插件是 APK 里的 libqml_*.so，QtMultimedia 的替代 qmldir 要用安卓版（插件名不同）
+    m_engine->addImportPath(QStringLiteral("qrc:/qmlcompat-android"));
+#else
+    // The replacement QtMultimedia module still loads the plugin of the real one
+    m_engine->addPluginPath(QLibraryInfo::path(QLibraryInfo::QmlImportsPath) + QStringLiteral("/QtMultimedia"));
+#endif
     m_engine->setNetworkAccessManagerFactory(new DiskCachedNAMFactory);
 
     m_engine->addImageProvider(QStringLiteral("blurhash"), new BlurhashProvider);

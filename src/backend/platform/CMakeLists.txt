@@ -12,6 +12,8 @@ if(PEGASUS_ON_ANDROID)
         AndroidHelpers.cpp
         AndroidHelpers.h
     )
+    # QtAndroidPrivate（启动 Activity、权限请求）在 Qt 6.4 只有私有头文件
+    target_link_libraries(pegasus-backend PRIVATE Qt6::CorePrivate)
 endif()
 
 

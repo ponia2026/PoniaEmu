@@ -17,8 +17,8 @@
 
 #include "AndroidAppIconProvider.h"
 
-#include <QtAndroidExtras/QAndroidJniEnvironment>
-#include <QtAndroidExtras/QAndroidJniObject>
+#include <QJniEnvironment>
+#include <QJniObject>
 
 
 AndroidAppIconProvider::AndroidAppIconProvider()
@@ -27,14 +27,14 @@ AndroidAppIconProvider::AndroidAppIconProvider()
 
 QPixmap AndroidAppIconProvider::requestPixmap(const QString& id, QSize*, const QSize&)
 {
-    static constexpr auto JNI_CLASS = "org/pegasus_frontend/android/MainActivity";
+    static constexpr auto JNI_CLASS = "org/ponia/PoniaEmu/MainActivity";
     static constexpr auto APPICON_METHOD = "appIcon";
     static constexpr auto APPICON_SIGNATURE = "(Ljava/lang/String;)[B";
     static constexpr auto APPICON_FMT = "PNG";
 
-    QAndroidJniEnvironment jni_env;
-    const auto jni_packagename = QAndroidJniObject::fromString(id);
-    const auto jni_iconbytes_raw = QAndroidJniObject::callStaticObjectMethod(JNI_CLASS,
+    QJniEnvironment jni_env;
+    const auto jni_packagename = QJniObject::fromString(id);
+    const auto jni_iconbytes_raw = QJniObject::callStaticObjectMethod(JNI_CLASS,
                                                                              APPICON_METHOD, APPICON_SIGNATURE,
                                                                              jni_packagename.object<jstring>());
     const auto jni_iconbytes_arr = jni_iconbytes_raw.object<jbyteArray>();
