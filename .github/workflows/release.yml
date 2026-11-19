@@ -151,9 +151,10 @@ jobs:
         run: |
           mkdir -p dist
           NAME="$(sh etc/android/apk-name.sh build '${{ matrix.suffix }}')"
+          # repack-apk.sh changes directory, so it needs absolute paths.
           sh etc/android/repack-apk.sh \
-            build/src/app/android-build/build/outputs/apk/debug/android-build-debug.apk \
-            "dist/$NAME"
+            "$PWD/build/src/app/android-build/build/outputs/apk/debug/android-build-debug.apk" \
+            "$PWD/dist/$NAME"
           ls -l dist
 
       - uses: actions/upload-artifact@v4
