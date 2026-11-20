@@ -352,6 +352,13 @@ void ProcessLauncher::onProcessError(QProcess::ProcessError error)
     switch (m_process->state()) {
         case QProcess::Starting:
         case QProcess::NotRunning:
+            // A program that crashes after it has started is reported here with the state already "not running", and finished()
+            // follows: it does the cleanup. Cleaning up here as well would delete the process twice and take the frontend down with it.
+            if (error == QProcess::Crashed) {
+                Log::warning(message);
+                emit processRuntimeError(message);
+                break;
+            }
             emit processLaunchError(message);
             Log::warning(message);
             afterRun(); // finished() won't run
@@ -396,9 +403,10 @@ void ProcessLauncher::beforeRun(const QString& game_path)
 void ProcessLauncher::afterRun()
 {
 #ifndef Q_OS_ANDROID
-    Q_ASSERT(m_process);
-    m_process->deleteLater();
-    m_process = nullptr;
+    if (m_process) {
+        m_process->deleteLater();
+        m_process = nullptr;
+    }
 #endif
 
     ScriptRunner::run(ScriptEvent::PROCESS_FINISHED);

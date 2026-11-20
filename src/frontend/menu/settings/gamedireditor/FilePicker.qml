@@ -189,6 +189,17 @@ FocusScope {
                     preferredHighlightBegin: height * 0.5 - vpx(18) * 1.25
                     preferredHighlightEnd: height * 0.5 + vpx(18) * 1.25
                     highlightMoveDuration: 0
+
+                    // The folder list is filled after the dialog opens, and the list then has no current item, so no cursor is shown
+                    // until a key is pressed. Put the cursor on the first real folder (the row after "..") as soon as there is one.
+                    Connections {
+                        target: folderModel
+                        function onFolderChanged() { list.currentIndex = -1; }
+                        function onCountChanged() {
+                            if (list.currentIndex < 0 && folderModel.count > 0)
+                                list.currentIndex = folderModel.count > 1 ? 1 : 0;
+                        }
+                    }
                 }
             }
         }

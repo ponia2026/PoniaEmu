@@ -208,6 +208,24 @@ void CoreInstaller::dismiss()
     emit changed();
 }
 
+void CoreInstaller::acknowledge()
+{
+    if (m_state != QLatin1String("done") && m_state != QLatin1String("error"))
+        return;
+    const bool failed = m_state == QLatin1String("error");
+    m_state = QStringLiteral("idle");
+    m_error.clear();
+    // After a failure the cores are still missing: do not nag again until the set of missing cores changes.
+    if (failed) {
+        QDir().mkpath(cores_dir());
+        QFile marker(cores_dir() + QStringLiteral("/.declined"));
+        if (marker.open(QIODevice::WriteOnly | QIODevice::Truncate))
+            marker.write(signature().toUtf8());
+        m_declined = true;
+    }
+    emit changed();
+}
+
 void CoreInstaller::start()
 {
     if (m_state == QLatin1String("downloading") || m_missing.empty())

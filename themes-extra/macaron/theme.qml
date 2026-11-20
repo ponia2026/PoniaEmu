@@ -145,7 +145,14 @@ FocusScope {
         x.send();
     }
 
-    Component.onCompleted: { buildFavs(); rebuild(); loadOverrides(); }
+    Component.onCompleted: {
+        buildFavs(); rebuild(); loadOverrides();
+        // Coming back from a game (the frontend was rebuilt): open the game list of the last system, not the system list
+        if (api.memory.get("macaron.resume") === "games") {
+            api.memory.set("macaron.resume", "");
+            if (shown.length > 0) enterGames();
+        }
+    }
 
     function buildFavs() {
         var a = [];
@@ -251,7 +258,8 @@ FocusScope {
             var g = root.pendingGame;
             root.pendingGame = null;
             root.launching = false;
-            if (g) g.launch();
+            // On Linux the frontend is rebuilt after the game ends: remember that we left from the game list, so it opens there again
+            if (g) { api.memory.set("macaron.resume", "games"); g.launch(); }
         }
     }
     onLaunchingChanged: { /* the pause of the video is bound by GameView.mediaPaused */ }
@@ -426,11 +434,12 @@ FocusScope {
             var cs = cores.state;
             if (api.keys.isAccept(event)) {
                 if (cs === "downloading") return;
-                if (cs === "done") coreDlgClosed = true;
+                if (cs === "done") { coreDlgClosed = true; cores.acknowledge(); }
                 else { coreDlgClosed = false; cores.start(); }
             } else if (api.keys.isCancel(event)) {
                 if (cs === "downloading") return;
-                if (cs === "idle") cores.dismiss(); else coreDlgClosed = true;
+                if (cs === "idle") cores.dismiss();
+                else { coreDlgClosed = true; cores.acknowledge(); }
             }
             return;
         }

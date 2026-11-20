@@ -46,6 +46,7 @@ public:
 
     Q_INVOKABLE void start();     // user agreed: download everything that is missing
     Q_INVOKABLE void dismiss();   // user declined: do not ask again until the set of missing cores changes
+    Q_INVOKABLE void acknowledge();   // user confirmed the "done" or "error" message: back to idle (the frontend is rebuilt after every game, so this must not live in the theme)
 
 signals:
     void changed();
