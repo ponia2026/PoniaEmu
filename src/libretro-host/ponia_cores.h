@@ -22,11 +22,13 @@ inline const CoreInfo* core_table(int& n) {
         {"gambatte", nullptr, "GPLv2", false, 424},
         {"mgba", nullptr, "MPLv2.0", false, 410},
         {"melonds", nullptr, "GPLv3", false, 674},
+        {"desmume2015", nullptr, "GPLv2", false, 700},   // NDS replacement on targets where melonds has no JIT (32-bit ARM)
         {"snes9x", nullptr, "Non-commercial", true, 870},
         {"genesis_plus_gx", nullptr, "Non-commercial", true, 1107},
         {"mednafen_pce_fast", nullptr, "GPLv2", false, 365},
         {"fbneo", nullptr, "Non-commercial", true, 16383},
         {"mame2003_plus", nullptr, "MAME Noncommercial", true, 9651},
+        {"mame2010", nullptr, "MAME Noncommercial", true, 14930},
         {"mamearcade", nullptr, "GPLv2+", false, 256938},   // full MAME: the arcade romsets of the community are from recent MAME, which mame2003_plus does not recognise
         {"mupen64plus_next", "mupen64plus_next_gles3", "GPLv2", false, 2150},
         {"pcsx_rearmed", nullptr, "GPLv2", false, 520},
@@ -35,6 +37,7 @@ inline const CoreInfo* core_table(int& n) {
         {"dolphin", nullptr, "GPLv2+", false, 6430},   // GameCube: needs the Sys folder (bundled in the APK assets, unpacked on first use)
         {"yabasanshiro", nullptr, "GPLv2", false, 1526},   // Saturn (needs saturn_bios.bin, put it in Ponia.Roms/BIOS)
         {"stella", nullptr, "GPLv2", false, 1444},
+        {"stella2014", nullptr, "GPLv2", false, 900},   // Atari 2600 replacement on targets where the current stella cannot be built (32-bit ARM)
         {"a5200", nullptr, "GPLv2", false, 300},
         {"prosystem", nullptr, "GPLv2", false, 200},
         {"fake08", nullptr, "MIT", false, 700},   // main PICO-8 core: supports compressed cartridges (retro8 cannot open them); the buildbot has no Android build, so it is built with the NDK (see the comments in fetch-bundled-cores.sh)
@@ -52,8 +55,9 @@ inline const CoreInfo* core_info(const std::string& id) {
     return nullptr;
 }
 
-// ---------- build targets and the per-target exclusion list ----------
-// The five targets PoniaEmu is built for. The target is fixed at compile time.
+// ---------- build targets ----------
+// The five targets PoniaEmu is built for. The target of a binary is fixed at compile time (current_target());
+// the *_on(target, ...) functions below answer for any target, so packaging tools can ask about the targets they pack.
 enum class Target { LinuxX64, LinuxArm64, LinuxArm32, AndroidV8a, AndroidV7a };
 
 constexpr Target current_target() {
@@ -72,12 +76,74 @@ constexpr Target current_target() {
 #endif
 }
 
-// ---------- cores downloaded from the PoniaCore project instead of the libretro buildbot ----------
-// https://github.com/ponia2026/PoniaCore publishes these builds (GLES/EGL builds for GLES-only GPUs, and cores the buildbot
-// does not provide). Asset name: <core>_libretro_<target>.so.zip in the "cores-latest" release.
+// Target name as used in PoniaCore asset names and by the packaging tools.
+constexpr const char* target_name(Target t) {
+    return t == Target::LinuxX64 ? "linux-x86_64"
+         : t == Target::LinuxArm64 ? "linux-arm64"
+         : t == Target::LinuxArm32 ? "linux-armhf"
+         : t == Target::AndroidV8a ? "android-v8a" : "android-v7a";
+}
+
+// Returns false when the name is not a target.
+inline bool parse_target(const char* name, Target& out) {
+    for (Target t : {Target::LinuxX64, Target::LinuxArm64, Target::LinuxArm32, Target::AndroidV8a, Target::AndroidV7a})
+        if (std::strcmp(name, target_name(t)) == 0) { out = t; return true; }
+    return false;
+}
+
+// ---------- which core plays which system, per target ----------
+// 1. Each system has ONE default core (the table below). It is what every target uses unless a rule says otherwise.
+// 2. A rule (target_rules) changes one system on one target: a replacement core, or "" = the system is not offered on that target
+//    (nothing is downloaded or packed for it, and the frontend hides the system).
+// 3. Where a core comes from on a target: the libretro buildbot, unless the core is listed in poniacore_cores (published by
+//    https://github.com/ponia2026/PoniaCore, asset <core>_libretro_<target>.so.zip in the "cores-latest" release).
+// Packaging asks the same functions (see etc/tools/list_cores.cpp), so a core that no system uses on a target is never packed for it.
+
+// System key (the result of resolve_system in ponia_systems.h) -> default core id. Ports have no core and are not in this table.
+struct SystemCore { const char* sys; const char* core; };
+
+inline const SystemCore* system_table(int& n) {
+    static const SystemCore T[] = {
+        {"fc", "fceumm"}, {"gb", "gambatte"}, {"gbc", "gambatte"}, {"gba", "mgba"}, {"nds", "melonds"},
+        {"sfc", "snes9x"}, {"genesis", "genesis_plus_gx"}, {"sms", "genesis_plus_gx"},
+        {"pce", "mednafen_pce_fast"}, {"neogeo", "fbneo"}, {"cps1", "fbneo"}, {"cps2", "fbneo"}, {"fbneo", "fbneo"},
+        {"mame", "mamearcade"}, {"n64", "mupen64plus_next"}, {"ps1", "pcsx_rearmed"}, {"dc", "flycast"},
+        {"gc", "dolphin"}, {"psp", "ppsspp"}, {"saturn", "yabasanshiro"}, {"atari2600", "stella"}, {"atari5200", "a5200"},
+        {"atari7800", "prosystem"}, {"pico8", "fake08"}, {"apple2", "applewin"}, {"dos", "dosbox_pure"},
+    };
+    n = (int)(sizeof T / sizeof T[0]);
+    return T;
+}
+
+struct TargetRule { Target target; const char* sys; const char* core; const char* note; };
+
+inline const TargetRule* target_rules(int& n) {
+    static const TargetRule T[] = {
+        // 32-bit ARM Linux. The reference is an RK3288 class board: systems that are not smooth there are not offered.
+        {Target::LinuxArm32, "nds",       "desmume2015",   "melonds has no ARM32 JIT; desmume2015 comes from the buildbot"},
+        {Target::LinuxArm32, "atari2600", "stella2014",    "current stella needs C++20 <format>; stella2014 comes from the buildbot"},
+        {Target::LinuxArm32, "mame",      "mame2003_plus", "full MAME does not fit the 32-bit address space; mame2003_plus comes from the buildbot"},
+        {Target::LinuxArm32, "n64",       "",              "not smooth enough; decide after testing on the reference board"},
+        {Target::LinuxArm32, "dc",        "",              "not smooth enough; decide after testing on the reference board"},
+        {Target::LinuxArm32, "psp",       "",              "not smooth enough; decide after testing on the reference board"},
+        {Target::LinuxArm32, "saturn",    "",              "not smooth enough"},
+        {Target::LinuxArm32, "gc",        "",              "no ARM32 JIT"},
+        // 32-bit Android: Dolphin has no ARM32 JIT
+        {Target::AndroidV7a, "gc",        "",              "no ARM32 JIT"},
+        // Ports (PC/Linux programs started through a launch command) are not supported on any target
+        {Target::LinuxX64,   "ports",     "",              "not supported"},
+        {Target::LinuxArm64, "ports",     "",              "not supported"},
+        {Target::LinuxArm32, "ports",     "",              "not supported"},
+        {Target::AndroidV8a, "ports",     "",              "not supported"},
+        {Target::AndroidV7a, "ports",     "",              "not supported"},
+    };
+    n = (int)(sizeof T / sizeof T[0]);
+    return T;
+}
+
 struct PoniaCoreRow { Target target; const char* id; };
 
-inline bool from_poniacore(const char* id) {
+inline const PoniaCoreRow* poniacore_cores(int& n) {
     static const PoniaCoreRow T[] = {
         {Target::LinuxArm64, "mupen64plus_next"},
         {Target::LinuxArm64, "yabasanshiro"},
@@ -85,86 +151,55 @@ inline bool from_poniacore(const char* id) {
         {Target::LinuxArm64, "dolphin"},
         {Target::LinuxArm64, "fake08"},
         {Target::LinuxX64,   "fake08"},
-    };
-    for (const PoniaCoreRow& r : T)
-        if (r.target == current_target() && std::strcmp(r.id, id) == 0) return true;
-    return false;
-}
-
-// Target name used in PoniaCore asset names; empty for Android (not served by PoniaCore).
-constexpr const char* poniacore_target_name() {
-    return current_target() == Target::LinuxX64 ? "linux-x86_64"
-         : current_target() == Target::LinuxArm64 ? "linux-arm64"
-         : current_target() == Target::LinuxArm32 ? "linux-armhf" : "";
-}
-
-// One row = one core id or one system key that is NOT offered on that target. An excluded core is never downloaded
-// or started, and the frontend hides the systems that would need it (SearchContext::finalize_hide_unsupported).
-// To bring one back, delete its row. The reason says what has to change before the row can go.
-struct Exclusion { Target target; const char* what; const char* reason; };
-
-inline const Exclusion* exclusion_table(int& n) {
-    static const Exclusion T[] = {
-        // 32-bit ARM Linux: no build on the libretro buildbot (linux/armv7-neon-hf)
-        {Target::LinuxArm32, "melonds",          "no armhf build on the buildbot"},
-        {Target::LinuxArm32, "mamearcade",       "no armhf build; the 32-bit address space is too small for full MAME"},
-        {Target::LinuxArm32, "mupen64plus_next", "no armhf build on the buildbot"},
-        {Target::LinuxArm32, "flycast",          "no armhf build on the buildbot"},
-        {Target::LinuxArm32, "ppsspp",           "no armhf build on the buildbot"},
-        {Target::LinuxArm32, "dolphin",          "no ARM32 JIT"},
-        {Target::LinuxArm32, "yabasanshiro",     "no armhf build on the buildbot"},
-        {Target::LinuxArm32, "stella",           "no armhf build on the buildbot"},
-        {Target::LinuxArm32, "a5200",            "no armhf build on the buildbot"},
-        {Target::LinuxArm32, "applewin",         "no armhf build on the buildbot"},
-        {Target::LinuxArm32, "dosbox_pure",      "no armhf build on the buildbot"},
-        {Target::LinuxArm32, "retro8",           "no armhf build; fake08 is shipped with the package instead"},
-        // 64-bit ARM Linux: Nintendo 64, Saturn, PSP and GameCube come from PoniaCore (GLES/EGL builds), see from_poniacore()
-        // 32-bit Android: Dolphin has no ARM32 JIT
-        {Target::AndroidV7a, "dolphin",          "no ARM32 JIT"},
-        // Ports (PC/Linux programs started through a launch command) are not supported on any target
-        {Target::LinuxX64,   "ports",            "not supported"},
-        {Target::LinuxArm64, "ports",            "not supported"},
-        {Target::LinuxArm32, "ports",            "not supported"},
-        {Target::AndroidV8a, "ports",            "not supported"},
-        {Target::AndroidV7a, "ports",            "not supported"},
+        {Target::LinuxArm32, "fake08"},
+        {Target::LinuxArm32, "a5200"},
+        {Target::LinuxArm32, "dosbox_pure"},
+        {Target::LinuxArm32, "applewin"},
     };
     n = (int)(sizeof T / sizeof T[0]);
     return T;
 }
 
-// Is this core id or system key excluded on the target this binary was built for?
-inline bool excluded(const char* what) {
-    int n; const Exclusion* T = exclusion_table(n);
+inline const TargetRule* rule_for(Target t, const std::string& key) {
+    int n; const TargetRule* T = target_rules(n);
     for (int i = 0; i < n; ++i)
-        if (T[i].target == current_target() && std::strcmp(T[i].what, what) == 0) return true;
-    return false;
-}
-
-// System key (the result of resolve_system in ponia_systems.h) -> core id, ignoring the exclusion list; Ports are handled separately and are not in this table.
-inline const char* table_core_for_system(const std::string& key) {
-    struct M { const char* sys; const char* core; };
-    static const M T[] = {
-        {"fc", "fceumm"}, {"gb", "gambatte"}, {"gbc", "gambatte"}, {"gba", "mgba"}, {"nds", "melonds"},
-        {"sfc", "snes9x"}, {"genesis", "genesis_plus_gx"}, {"sms", "genesis_plus_gx"},
-        {"pce", "mednafen_pce_fast"}, {"neogeo", "fbneo"}, {"cps1", "fbneo"}, {"cps2", "fbneo"}, {"fbneo", "fbneo"},
-        {"mame", "mamearcade"}, {"n64", "mupen64plus_next"}, {"ps1", "pcsx_rearmed"}, {"dc", "flycast"},
-        {"gc", "dolphin"}, {"psp", "ppsspp"}, {"saturn", "yabasanshiro"}, {"atari2600", "stella"}, {"atari5200", "a5200"}, {"atari7800", "prosystem"}, {"pico8", "fake08"}, {"apple2", "applewin"}, {"dos", "dosbox_pure"},
-    };
-    for (const M& m : T) if (key == m.sys) return m.core;
+        if (T[i].target == t && key == T[i].sys) return &T[i];
     return nullptr;
 }
 
-// The core for a system on this target; empty when the system has no core or its core is excluded here.
-inline std::string core_id_for_system(const std::string& key) {
-    const char* core = table_core_for_system(key);
-    return (core && !excluded(core)) ? std::string(core) : std::string();
+// The core for a system on a target: the rule's replacement, else the default. Empty when the system has no core
+// there (a rule with "", or a system without a default core).
+inline std::string core_for_system_on(Target t, const std::string& key) {
+    if (const TargetRule* r = rule_for(t, key))
+        return r->core;
+    int n; const SystemCore* T = system_table(n);
+    for (int i = 0; i < n; ++i)
+        if (key == T[i].sys) return T[i].core;
+    return std::string();
 }
 
-// Should the frontend hide this system on this target: the system itself is excluded (such as Ports on Android) or its core is.
-inline bool system_hidden(const std::string& key) {
-    if (excluded(key.c_str())) return true;
-    const char* core = table_core_for_system(key);
-    return core && excluded(core);
+// Is the system hidden on that target (a rule says it is not offered there)?
+inline bool system_hidden_on(Target t, const std::string& key) {
+    const TargetRule* r = rule_for(t, key);
+    return r && r->core[0] == '\0';
+}
+
+// Is the core published by PoniaCore (not by the libretro buildbot) on that target?
+inline bool from_poniacore_on(Target t, const char* id) {
+    int n; const PoniaCoreRow* T = poniacore_cores(n);
+    for (int i = 0; i < n; ++i)
+        if (T[i].target == t && std::strcmp(T[i].id, id) == 0) return true;
+    return false;
+}
+
+// The same questions for the target this binary was built for.
+inline std::string core_id_for_system(const std::string& key) { return core_for_system_on(current_target(), key); }
+inline bool system_hidden(const std::string& key) { return system_hidden_on(current_target(), key); }
+inline bool from_poniacore(const char* id) { return from_poniacore_on(current_target(), id); }
+
+// Target name used in PoniaCore asset names; empty for Android (not served by PoniaCore).
+constexpr const char* poniacore_target_name() {
+    return current_target() == Target::AndroidV8a || current_target() == Target::AndroidV7a ? "" : target_name(current_target());
 }
 
 // Systems that go through a "standalone emulator app": the installed app is started with am start and the game file. Returns nullptr when the system is not a standalone-emulator system.
