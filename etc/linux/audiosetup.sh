@@ -214,7 +214,9 @@ case "${1:-}" in
         [ "$ready" = s ] && { say "Skipped. You can run it later with: audiosetup"; exit 0; }
         while :; do
             run_tests
-            printf 'Which candidate did you hear FIRST? (number, 0 = none, r = play again, q = quit): ' >/dev/tty
+            say "Several candidates can work: the sound card has more than one playback device that reaches the same HDMI output."
+            say "If you heard more than one, any of them is fine: type the lowest number you heard."
+            printf 'Number you heard (0 = none, r = play again, q = quit): ' >/dev/tty
             read -r answer </dev/tty || exit 1
             case "$answer" in
                 q) exit 0 ;;
