@@ -37,7 +37,6 @@ inline const CoreInfo* core_table(int& n) {
         {"dolphin", nullptr, "GPLv2+", false, 6430},   // GameCube: needs the Sys folder (bundled in the APK assets, unpacked on first use)
         {"yabasanshiro", nullptr, "GPLv2", false, 1526},   // Saturn (needs saturn_bios.bin, put it in Ponia.Roms/BIOS)
         {"stella", nullptr, "GPLv2", false, 1444},
-        {"stella2014", nullptr, "GPLv2", false, 900},   // Atari 2600 replacement on targets where the current stella cannot be built (32-bit ARM)
         {"a5200", nullptr, "GPLv2", false, 300},
         {"prosystem", nullptr, "GPLv2", false, 200},
         {"fake08", nullptr, "MIT", false, 700},   // main PICO-8 core: supports compressed cartridges (retro8 cannot open them); the buildbot has no Android build, so it is built with the NDK (see the comments in fetch-bundled-cores.sh)
@@ -122,7 +121,6 @@ inline const TargetRule* target_rules(int& n) {
     static const TargetRule T[] = {
         // 32-bit ARM Linux. The reference is an RK3288 class board: systems that are not smooth there are not offered.
         {Target::LinuxArm32, "nds",       "desmume2015",   "melonds has no ARM32 JIT; desmume2015 comes from the buildbot"},
-        {Target::LinuxArm32, "atari2600", "stella2014",    "current stella needs C++20 <format>; stella2014 comes from the buildbot"},
         {Target::LinuxArm32, "mame",      "mame2003_plus", "full MAME does not fit the 32-bit address space; mame2003_plus comes from the buildbot"},
         {Target::LinuxArm32, "n64",       "",              "not smooth enough; decide after testing on the reference board"},
         {Target::LinuxArm32, "dc",        "",              "not smooth enough; decide after testing on the reference board"},
@@ -164,6 +162,7 @@ inline const PoniaCoreRow* poniacore_cores(int& n) {
         {Target::LinuxX64,   "fake08"},
         {Target::LinuxArm32, "fake08"},
         {Target::LinuxArm32, "a5200"},
+        {Target::LinuxArm32, "stella"},   // built from the last upstream commit that gcc 12 can compile (before std::format)
         {Target::LinuxArm32, "dosbox_pure"},
         {Target::LinuxArm32, "applewin"},
     };
