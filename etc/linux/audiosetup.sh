@@ -94,28 +94,44 @@ route() {   # card device tdm_index tdm_letter percent
 }
 
 # ---- test tones -------------------------------------------------------------------------------------------------
-beeps() {   # card device count: <count> beeps of 0.6 s on hw:card,device
+# The beeps are one continuous raw stream (S16_LE, 48 kHz, stereo) per candidate: a long silent start, then N beeps. One stream matters:
+# an HDMI link needs a second or two after the device is opened before sound comes out, so beeps played as separate short
+# commands (each reopening the device) would be cut off or missed. Only aplay is needed, no tone generator.
+TONE_DIR=""
+make_tone() {
+    TONE_DIR="$(mktemp -d)"
+    trap 'rm -rf "$TONE_DIR"' EXIT
+    # one period of a 750 Hz sine at 48 kHz = 64 samples, as octal escapes for printf
+    printf "$(awk 'BEGIN { pi = 3.14159265358979
+        for (i = 0; i < 64; i++) { v = int(9000 * sin(2 * pi * i / 64)); if (v < 0) v += 65536
+            lo = v % 256; hi = int(v / 256); printf "\\%03o\\%03o\\%03o\\%03o", lo, hi, lo, hi } }')" > "$TONE_DIR/period"
+    : > "$TONE_DIR/beep"
     n=0
-    while [ "$n" -lt "$3" ]; do
-        timeout 0.6 speaker-test -q -D "hw:$1,$2" -t sine -f 660 -c 2 >/dev/null 2>&1
-        sleep 0.5
+    while [ "$n" -lt 300 ]; do cat "$TONE_DIR/period" >> "$TONE_DIR/beep"; n=$((n + 1)); done   # 300 periods = 0.4 s
+}
+
+stream() {   # count: 3 s of silence, <count> beeps (0.4 s each, 0.4 s apart), 1 s of silence
+    head -c 576000 /dev/zero
+    n=0
+    while [ "$n" -lt "$1" ]; do
+        cat "$TONE_DIR/beep"
+        head -c 76800 /dev/zero
         n=$((n + 1))
     done
+    head -c 192000 /dev/zero
 }
 
 play_candidate() {   # index card device tdm_index tdm_letter
     say "  candidate $1: card $2 device $3${5:+ (I2S $5)} - $1 beep(s)"
     route "$2" "$3" "$4" "$5" "$TEST_VOLUME"
-    # The HDMI link needs a moment to lock after a route change; a short silent start avoids a cut-off first beep.
-    timeout 1 speaker-test -q -D "hw:$2,$3" -t sine -f 20 -c 2 >/dev/null 2>&1
-    sleep 0.5
-    beeps "$2" "$3" "$1"
-    sleep 1.5
+    stream "$1" | aplay -q -D "hw:$2,$3" -t raw -f S16_LE -r 48000 -c 2 \
+        || say "    (could not play on card $2 device $3: busy or not usable)"
 }
 
 run_tests() {   # [only index]
     only="${1:-0}"
-    say "Playing the candidates. Listen on the TV: candidate N beeps N times."
+    say "Playing the candidates. Listen on the TV: candidate N beeps N times (after about 3 seconds of silence)."
+    make_tone
     i=0
     candidates | while read -r card dev tdm letter; do
         i=$((i + 1))
@@ -178,7 +194,7 @@ EOF
 }
 
 # ---- main -------------------------------------------------------------------------------------------------------
-need aplay; need amixer; need speaker-test; need timeout
+need aplay; need amixer; need awk
 
 case "${1:-}" in
     --list)
