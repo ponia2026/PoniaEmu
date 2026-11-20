@@ -72,6 +72,32 @@ constexpr Target current_target() {
 #endif
 }
 
+// ---------- cores downloaded from the PoniaCore project instead of the libretro buildbot ----------
+// https://github.com/ponia2026/PoniaCore publishes these builds (GLES/EGL builds for GLES-only GPUs, and cores the buildbot
+// does not provide). Asset name: <core>_libretro_<target>.so.zip in the "cores-latest" release.
+struct PoniaCoreRow { Target target; const char* id; };
+
+inline bool from_poniacore(const char* id) {
+    static const PoniaCoreRow T[] = {
+        {Target::LinuxArm64, "mupen64plus_next"},
+        {Target::LinuxArm64, "yabasanshiro"},
+        {Target::LinuxArm64, "ppsspp"},
+        {Target::LinuxArm64, "dolphin"},
+        {Target::LinuxArm64, "fake08"},
+        {Target::LinuxX64,   "fake08"},
+    };
+    for (const PoniaCoreRow& r : T)
+        if (r.target == current_target() && std::strcmp(r.id, id) == 0) return true;
+    return false;
+}
+
+// Target name used in PoniaCore asset names; empty for Android (not served by PoniaCore).
+constexpr const char* poniacore_target_name() {
+    return current_target() == Target::LinuxX64 ? "linux-x86_64"
+         : current_target() == Target::LinuxArm64 ? "linux-arm64"
+         : current_target() == Target::LinuxArm32 ? "linux-armhf" : "";
+}
+
 // One row = one core id or one system key that is NOT offered on that target. An excluded core is never downloaded
 // or started, and the frontend hides the systems that would need it (SearchContext::finalize_hide_unsupported).
 // To bring one back, delete its row. The reason says what has to change before the row can go.
@@ -92,11 +118,7 @@ inline const Exclusion* exclusion_table(int& n) {
         {Target::LinuxArm32, "applewin",         "no armhf build on the buildbot"},
         {Target::LinuxArm32, "dosbox_pure",      "no armhf build on the buildbot"},
         {Target::LinuxArm32, "retro8",           "no armhf build; fake08 is shipped with the package instead"},
-        // 64-bit ARM Linux: these buildbot builds link desktop OpenGL / X11, which GLES-only GPUs (Mali) do not provide
-        {Target::LinuxArm64, "mupen64plus_next", "buildbot build needs desktop OpenGL (libGL.so.1)"},
-        {Target::LinuxArm64, "yabasanshiro",     "buildbot build needs desktop OpenGL (libGL.so.1)"},
-        {Target::LinuxArm64, "ppsspp",           "buildbot build needs desktop OpenGL (libOpenGL/libGLX)"},
-        {Target::LinuxArm64, "dolphin",          "buildbot build needs X11/EGL"},
+        // 64-bit ARM Linux: Nintendo 64, Saturn, PSP and GameCube come from PoniaCore (GLES/EGL builds), see from_poniacore()
         // 32-bit Android: Dolphin has no ARM32 JIT
         {Target::AndroidV7a, "dolphin",          "no ARM32 JIT"},
         // Ports are PC/Linux programs started through a launch command; there is nothing to run on Android

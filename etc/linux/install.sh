@@ -99,6 +99,7 @@ if [ "${NO_DEPS:-0}" != 1 ]; then
             run $SUDO apt-get update || say "note: apt-get update failed, check the network and the apt sources."
         fi
         PKGS=""
+        # libbluetooth3/libudev1/libcurl4/libpugixml1v5: needed by the GameCube core (dolphin) from PoniaCore
         # libgles2/libegl1/libgbm1: the player draws through SDL on KMS/DRM and needs the GLES library; without it a game runs with sound but no picture
         for p in libsdl2-2.0-0 libgles2 libegl1 libgbm1 fontconfig \
                  libqt6core6 libqt6gui6 libqt6network6 libqt6qml6 libqt6quick6 libqt6core5compat6 \
@@ -106,7 +107,8 @@ if [ "${NO_DEPS:-0}" != 1 ]; then
                  qml6-module-qtqml qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
                  qml6-module-qtquick-window qml6-module-qtquick-templates qml6-module-qtquick-timeline \
                  qml6-module-qtqml-workerscript qml6-module-qtqml-models qml6-module-qt-labs-qmlmodels \
-                 qml6-module-qtmultimedia qml6-module-qt5compat-graphicaleffects; do
+                 qml6-module-qtmultimedia qml6-module-qt5compat-graphicaleffects \
+                 libbluetooth3 libudev1 libcurl4 libpugixml1v5; do
             if q="$(pick_pkg "$p")"; then PKGS="$PKGS $q"; else say "note: package $p is not available here, skipping."; fi
         done
         if [ "${DRY_RUN:-0}" != 1 ] && ! apt-cache policy libqt6core6 libqt6core6t64 2>/dev/null | grep -q "Candidate: [^(]"; then

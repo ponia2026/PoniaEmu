@@ -76,6 +76,13 @@ QString download_url(const ponia::CoreInfo& ci)
     if (name == QLatin1String("mupen64plus_next_gles3"))
         name = QStringLiteral("mupen64plus_next");
 #endif
+#ifndef Q_OS_ANDROID
+    // Builds published by the PoniaCore project (GLES/EGL builds and cores the buildbot does not have).
+    if (ponia::from_poniacore(ci.id))
+        return QStringLiteral("https://github.com/ponia2026/PoniaCore/releases/download/cores-latest/")
+             + QString::fromLatin1(ci.id) + QStringLiteral("_libretro_") + QString::fromLatin1(ponia::poniacore_target_name())
+             + QStringLiteral(".so.zip");
+#endif
     const QString arch = QSysInfo::buildCpuArchitecture();
     const QString base = QStringLiteral("https://buildbot.libretro.com/nightly/");
 #ifdef Q_OS_ANDROID
