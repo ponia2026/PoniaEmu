@@ -209,13 +209,19 @@ void SearchContext::finalize_cleanup_games()
     std::vector<model::Game*> hidden_games;
     for (const auto& pair : m_game_entries) {
         model::Game* const game_ptr = pair.first;
-        if (!game_ptr->launchCmd().isEmpty())
-            continue;
+        const bool has_launch_cmd = !game_ptr->launchCmd().isEmpty();
         const QFileInfo file = pair.second.empty() ? QFileInfo() : pair.second.front()->fileinfo();
         const std::string key = ponia::system_key_from_parts(game_ptr->extraMap(), file, collections_of[game_ptr]);
-        // A Port has no core: without a launch command of its own there is nothing to start, so it is not shown either
+        // Ports are not supported: they are hidden even when they have a launch command of their own.
+        // Other games with a launch command are kept; the rest are hidden when their system is not available here
         // (a collection whose games are all hidden disappears).
-        if (!key.empty() && (key == "ports" || ponia::system_hidden(key)))
+        if (key == "ports") {
+            hidden_games.push_back(game_ptr);
+            continue;
+        }
+        if (has_launch_cmd)
+            continue;
+        if (!key.empty() && ponia::system_hidden(key))
             hidden_games.push_back(game_ptr);
     }
     for (model::Game* const game_ptr : hidden_games) {

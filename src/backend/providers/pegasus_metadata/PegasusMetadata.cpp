@@ -556,10 +556,10 @@ void Metadata::apply_entry(ParserState& ps, const metafile::Entry& entry, Search
 
 std::vector<FileFilter> Metadata::apply_metafile(const QString& metafile_path, SearchContext& sctx) const
 {
-#ifdef Q_OS_ANDROID
-    // Ports (the PortMaster suite of Linux handhelds) cannot be run on Android: the whole folder is hidden until the Linux version opens it up
+    // Ports (PC/Linux programs started through a launch command) are not supported: the whole folder is hidden
     if (QFileInfo(metafile_path).dir().dirName().compare(QLatin1String("Ports"), Qt::CaseInsensitive) == 0)
         return {};
+#ifdef Q_OS_ANDROID
 #endif
 #if defined(Q_OS_ANDROID) && defined(__arm__) && !defined(__aarch64__)
     // 32-bit ARM: the Dolphin GameCube core has no ARM JIT (officially dropped ARMv7 in 2015; the v7a build of the buildbot only has the cached interpreter, far too slow to play) -> the whole NGC folder is hidden

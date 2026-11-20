@@ -121,9 +121,12 @@ inline const Exclusion* exclusion_table(int& n) {
         // 64-bit ARM Linux: Nintendo 64, Saturn, PSP and GameCube come from PoniaCore (GLES/EGL builds), see from_poniacore()
         // 32-bit Android: Dolphin has no ARM32 JIT
         {Target::AndroidV7a, "dolphin",          "no ARM32 JIT"},
-        // Ports are PC/Linux programs started through a launch command; there is nothing to run on Android
-        {Target::AndroidV8a, "ports",            "Linux programs only"},
-        {Target::AndroidV7a, "ports",            "Linux programs only"},
+        // Ports (PC/Linux programs started through a launch command) are not supported on any target
+        {Target::LinuxX64,   "ports",            "not supported"},
+        {Target::LinuxArm64, "ports",            "not supported"},
+        {Target::LinuxArm32, "ports",            "not supported"},
+        {Target::AndroidV8a, "ports",            "not supported"},
+        {Target::AndroidV7a, "ports",            "not supported"},
     };
     n = (int)(sizeof T / sizeof T[0]);
     return T;
