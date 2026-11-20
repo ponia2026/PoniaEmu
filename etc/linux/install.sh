@@ -19,8 +19,8 @@
 #   APT_UPDATE=1|0   run apt-get update before installing the runtime packages (default, 1) or not (0)
 #   SOUND_SERVER=1|0 install (default, 1) or skip (0) a PulseAudio server on a box that has none, see below
 #   HDMI_VOLUME=N    set the HDMI output level to N percent on boards that have a gain control (default 80, 0 = leave it alone)
-#   AUDIO_SETUP=1|0  1 = always run the HDMI sound setup (short beeps, you say which one you heard, see audio-setup.sh), 0 = do not install it;
-#                    default: run it when a terminal is available and no desktop runs. It is installed as poniaemu-audio-setup so it can be run again.
+#   AUDIO_SETUP=1|0  1 = always run the HDMI sound setup (short beeps, you say which one you heard, see audiosetup.sh), 0 = do not install it;
+#                    default: run it when a terminal is available and no desktop runs. It is installed as audiosetup so it can be run again.
 # Remove it again with:  sh install.sh --uninstall
 set -eu
 
@@ -48,9 +48,9 @@ if [ "${1:-}" = "--uninstall" ]; then
     done < "$MANIFEST"
     run $SUDO rm -f "$MANIFEST"
     # The HDMI sound helper is not part of the package; take back what it configured too.
-    if [ -f "$PREFIX/lib/poniaemu/audio-setup.sh" ]; then
-        run $SUDO sh "$PREFIX/lib/poniaemu/audio-setup.sh" --reset || true
-        run $SUDO rm -f "$PREFIX/lib/poniaemu/audio-setup.sh" "$PREFIX/bin/poniaemu-audio-setup"
+    if [ -f "$PREFIX/lib/poniaemu/audiosetup.sh" ]; then
+        run $SUDO sh "$PREFIX/lib/poniaemu/audiosetup.sh" --reset || true
+        run $SUDO rm -f "$PREFIX/lib/poniaemu/audiosetup.sh" "$PREFIX/bin/audiosetup"
     fi
     if [ -d /usr/local/share/fonts/poniaemu ]; then
         run $SUDO rm -rf /usr/local/share/fonts/poniaemu
@@ -244,22 +244,22 @@ fi
 
 # Which HDMI sound route works depends on the board and can only be judged by ear: the helper plays short beeps (candidate N beeps
 # N times), asks which one you heard first and makes that route the default for the menus and the games. It is always installed
-# (as poniaemu-audio-setup) and is run here when a terminal is available and no desktop runs, or when AUDIO_SETUP=1.
+# (as audiosetup) and is run here when a terminal is available and no desktop runs, or when AUDIO_SETUP=1.
 AS="${AUDIO_SETUP:-auto}"
 if [ "$AS" != 0 ] && [ "${DRY_RUN:-0}" != 1 ]; then
     $SUDO mkdir -p "$PREFIX/lib/poniaemu"
-    if curl -fsSL "https://raw.githubusercontent.com/$REPO/qt6/etc/linux/audio-setup.sh" | $SUDO tee "$PREFIX/lib/poniaemu/audio-setup.sh" >/dev/null; then
-        $SUDO ln -sf "$PREFIX/lib/poniaemu/audio-setup.sh" "$PREFIX/bin/poniaemu-audio-setup"
-        $SUDO chmod 755 "$PREFIX/lib/poniaemu/audio-setup.sh"
+    if curl -fsSL "https://raw.githubusercontent.com/$REPO/qt6/etc/linux/audiosetup.sh" | $SUDO tee "$PREFIX/lib/poniaemu/audiosetup.sh" >/dev/null; then
+        $SUDO ln -sf "$PREFIX/lib/poniaemu/audiosetup.sh" "$PREFIX/bin/audiosetup"
+        $SUDO chmod 755 "$PREFIX/lib/poniaemu/audiosetup.sh"
         if [ "$AS" = auto ]; then
             if ( : </dev/tty ) 2>/dev/null && ! systemctl is-active --quiet display-manager.service 2>/dev/null; then AS=1; else AS=0; fi
         fi
         if [ "$AS" = 1 ]; then
             say ""
-            say "HDMI sound setup (you can skip it and run it later with: poniaemu-audio-setup)"
-            $SUDO sh "$PREFIX/lib/poniaemu/audio-setup.sh" || say "note: the HDMI sound setup did not finish; run poniaemu-audio-setup again later."
+            say "HDMI sound setup (you can skip it and run it later with: audiosetup)"
+            $SUDO sh "$PREFIX/lib/poniaemu/audiosetup.sh" || say "note: the HDMI sound setup did not finish; run audiosetup again later."
         else
-            say "To set up the HDMI sound later, run: poniaemu-audio-setup"
+            say "To set up the HDMI sound later, run: audiosetup"
         fi
     else
         say "note: the HDMI sound helper could not be downloaded, skipping."

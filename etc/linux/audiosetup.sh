@@ -9,11 +9,11 @@
 # beeps N times. Make sure the TV is on, set to the HDMI input and not muted, and turn the volume to a normal level.
 #
 # Usage:
-#   sh audio-setup.sh              test, ask which one you heard, apply it (needs a terminal)
-#   sh audio-setup.sh --list       print the candidates
-#   sh audio-setup.sh --test [N]   play all candidates, or only candidate N, and stop
-#   sh audio-setup.sh --apply N    apply candidate N without asking
-#   sh audio-setup.sh --reset      remove what this script configured
+#   sh audiosetup.sh              test, ask which one you heard, apply it (needs a terminal)
+#   sh audiosetup.sh --list       print the candidates
+#   sh audiosetup.sh --test [N]   play all candidates, or only candidate N, and stop
+#   sh audiosetup.sh --apply N    apply candidate N without asking
+#   sh audiosetup.sh --reset      remove what this script configured
 #
 #   VOLUME=N    HDMI output level in percent on boards that have a gain control (default 80)
 #   TEST_VOLUME=N   level used for the beeps (default 40)
@@ -23,12 +23,12 @@ VOLUME="${VOLUME:-80}"
 TEST_VOLUME="${TEST_VOLUME:-40}"
 ASOUND=/etc/asound.conf
 PULSE_SYSTEM=/etc/pulse/system.pa
-MARK_BEGIN="# >>> poniaemu audio-setup >>>"
-MARK_END="# <<< poniaemu audio-setup <<<"
+MARK_BEGIN="# >>> poniaemu audiosetup >>>"
+MARK_END="# <<< poniaemu audiosetup <<<"
 
 if [ "$(id -u)" = 0 ]; then SUDO=""; else SUDO="sudo"; fi
 say() { printf '%s\n' "$*"; }
-need() { command -v "$1" >/dev/null 2>&1 || { say "audio-setup: '$1' is missing (apt install alsa-utils)"; exit 1; }; }
+need() { command -v "$1" >/dev/null 2>&1 || { say "audiosetup: '$1' is missing (apt install alsa-utils)"; exit 1; }; }
 
 # ---- candidates -------------------------------------------------------------------------------------------------
 # One line per candidate: <card> <device> <tdm index or -1> <tdm letter or ->
@@ -41,16 +41,16 @@ candidates() {
         [ -n "$devs" ] || continue
         items="$(amixer -c "$card" cget name='TOHDMITX I2S SRC' 2>/dev/null | sed -n "s/^ *; Item #\([0-9]*\) 'I2S \(.\)'.*/\1:\2/p")"
         if [ -n "$items" ]; then
-            first=""; rest=""
+            # Only the outputs the sound card really has are candidates: those with a source selector ("TDMOUT_x SRC SEL"),
+            # else those with a gain control; if the card has neither, all of them.
+            sel=""; gain=""
             for it in $items; do
                 letter="${it#*:}"
-                if amixer -c "$card" cget name="TDMOUT_${letter} Gain Enable Switch" >/dev/null 2>&1; then
-                    first="$first $it"
-                else
-                    rest="$rest $it"
-                fi
+                amixer -c "$card" cget name="TDMOUT_${letter} SRC SEL" >/dev/null 2>&1 && sel="$sel $it"
+                amixer -c "$card" cget name="TDMOUT_${letter} Gain Enable Switch" >/dev/null 2>&1 && gain="$gain $it"
             done
-            for it in $first $rest; do
+            use="$sel"; [ -n "$use" ] || use="$gain"; [ -n "$use" ] || use="$items"
+            for it in $use; do
                 for dev in $devs; do say "$card $dev ${it%%:*} ${it#*:}"; done
             done
         else
@@ -69,15 +69,27 @@ candidates() {
 
 # ---- mixer ------------------------------------------------------------------------------------------------------
 # Route HDMI audio to the chosen TDM output and set its level. Only does something on boards with the Amlogic controls.
-route() {   # card tdm_index tdm_letter percent
-    [ "$2" -ge 0 ] 2>/dev/null || return 0
-    lvl=$(( $4 * 255 / 100 ))
-    $SUDO amixer -q -c "$1" cset name='TOHDMITX I2S SRC' "$2" 2>/dev/null
+route() {   # card device tdm_index tdm_letter percent
+    [ "$3" -ge 0 ] 2>/dev/null || return 0
+    lvl=$(( $5 * 255 / 100 ))
+    # The sound card is wired in software: the playback device N is the FRDDR_<A+N> fifo, which must be connected to the TDM output
+    # ("SINK 1 SEL" = OUT <tdm index>, "SRC 1 EN" on), and the TDM output must take its input from that fifo ("SRC SEL" = IN N).
+    # Without this the device cannot even be opened ("no backend DAIs enabled" in the kernel log).
+    fifo="$(printf 'ABC' | cut -c$(($2 + 1)))"
+    for f in A B C; do
+        for n in 1 2 3; do $SUDO amixer -q -c "$1" cset name="FRDDR_$f SRC $n EN Switch" off 2>/dev/null; done
+    done
+    if [ -n "$fifo" ]; then
+        $SUDO amixer -q -c "$1" cset name="FRDDR_$fifo SINK 1 SEL" "OUT $3" 2>/dev/null
+        $SUDO amixer -q -c "$1" cset name="FRDDR_$fifo SRC 1 EN Switch" on 2>/dev/null
+        $SUDO amixer -q -c "$1" cset name="TDMOUT_$4 SRC SEL" "IN $2" 2>/dev/null
+    fi
+    $SUDO amixer -q -c "$1" cset name='TOHDMITX I2S SRC' "$3" 2>/dev/null
     $SUDO amixer -q -c "$1" cset name='TOHDMITX Switch' on 2>/dev/null
     for lane in 0 1 2 3; do
-        $SUDO amixer -q -c "$1" cset name="TDMOUT_$3 Lane $lane Volume" "$lvl,$lvl" 2>/dev/null
+        $SUDO amixer -q -c "$1" cset name="TDMOUT_$4 Lane $lane Volume" "$lvl,$lvl" 2>/dev/null
     done
-    $SUDO amixer -q -c "$1" cset name="TDMOUT_$3 Gain Enable Switch" on 2>/dev/null
+    $SUDO amixer -q -c "$1" cset name="TDMOUT_$4 Gain Enable Switch" on 2>/dev/null
     return 0
 }
 
@@ -93,7 +105,7 @@ beeps() {   # card device count: <count> beeps of 0.6 s on hw:card,device
 
 play_candidate() {   # index card device tdm_index tdm_letter
     say "  candidate $1: card $2 device $3${5:+ (I2S $5)} - $1 beep(s)"
-    route "$2" "$4" "$5" "$TEST_VOLUME"
+    route "$2" "$3" "$4" "$5" "$TEST_VOLUME"
     # The HDMI link needs a moment to lock after a route change; a short silent start avoids a cut-off first beep.
     timeout 1 speaker-test -q -D "hw:$2,$3" -t sine -f 20 -c 2 >/dev/null 2>&1
     sleep 0.5
@@ -128,10 +140,10 @@ reset() {
 
 apply() {   # index
     line="$(candidates | sed -n "${1}p")"
-    [ -n "$line" ] || { say "audio-setup: there is no candidate $1"; return 1; }
+    [ -n "$line" ] || { say "audiosetup: there is no candidate $1"; return 1; }
     set -- $line
     card=$1; dev=$2; tdm=$3; letter=$4
-    route "$card" "$tdm" "$letter" "$VOLUME"
+    route "$card" "$dev" "$tdm" "$letter" "$VOLUME"
     $SUDO alsactl store 2>/dev/null || true
 
     # ALSA default: through dmix, so PulseAudio (menus) and the player (games) can use the device at the same time.
@@ -177,13 +189,13 @@ case "${1:-}" in
     --reset) reset ;;
     "")
         count="$(candidates | wc -l)"
-        [ "$count" -gt 0 ] || { say "audio-setup: no sound device found."; exit 1; }
-        [ -r /dev/tty ] && [ -w /dev/tty ] || { say "audio-setup: no terminal to ask on; use --test and --apply N."; exit 1; }
+        [ "$count" -gt 0 ] || { say "audiosetup: no sound device found."; exit 1; }
+        [ -r /dev/tty ] && [ -w /dev/tty ] || { say "audiosetup: no terminal to ask on; use --test and --apply N."; exit 1; }
         say "HDMI audio setup: $count candidate(s). Turn the TV on, select the HDMI input and set a normal volume."
         say "Stop any running game first: the test uses the sound device and changes the HDMI route."
         printf 'Press Enter to start the beeps (s = skip this setup): ' >/dev/tty
         read -r ready </dev/tty || exit 1
-        [ "$ready" = s ] && { say "Skipped. You can run it later with: poniaemu-audio-setup"; exit 0; }
+        [ "$ready" = s ] && { say "Skipped. You can run it later with: audiosetup"; exit 0; }
         while :; do
             run_tests
             printf 'Which candidate did you hear FIRST? (number, 0 = none, r = play again, q = quit): ' >/dev/tty
