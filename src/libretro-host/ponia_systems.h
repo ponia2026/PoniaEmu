@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (C) 2026 Equuleus Works
 // System alias -> system key (matches the icon key of systems.js in the theme). Shared by the frontend (which adds a default launch command automatically) and poniaplay.
-// Only the systems that go through the built-in Libretro player are listed (including PSP/Saturn: via libretro cores; currently no system uses a standalone emulator app).
+// The systems that go through the built-in Libretro player are listed (including PSP/Saturn: via libretro cores; currently no system uses a standalone emulator app),
+// followed by the systems that are recognised only to be hidden.
 #pragma once
 #include <cctype>
 #include <string>
@@ -38,7 +39,18 @@ inline const SystemAlias* system_aliases(int& count) {
         {"dos", "dos,msdos,pcdos,dosbox"},
         {"psp", "psp,playstationportable"},
         {"saturn", "saturn,segasaturn,ss"},
-        {"ports", "ports,port"},   // no core: games are started with their own launch command (Linux only)
+        // Systems that are recognised but not supported on any target (see unsupported_systems in ponia_cores.h). They are listed so
+        // their collections are identified and hidden, and so that a name such as "PlayStation 2" is not taken for the PlayStation 1 by the prefix rule below.
+        {"ports", "ports,port"},
+        {"ps2", "ps2,playstation2,sonyplaystation2"},
+        {"ps3", "ps3,playstation3,sonyplaystation3"},
+        {"vita", "vita,psvita,playstationvita"},
+        {"wii", "wii,nintendowii"},
+        {"wiiu", "wiiu,nintendowiiu"},
+        {"3ds", "3ds,n3ds,nintendo3ds"},
+        {"switch", "switch,nswitch,nintendoswitch"},
+        {"xbox", "xbox,microsoftxbox"},
+        {"xbox360", "xbox360,x360,microsoftxbox360"},
     };
     count = (int)(sizeof T / sizeof T[0]);
     return T;

@@ -3,8 +3,8 @@
 // Lists the cores of one target from the same tables the program uses (src/libretro-host/ponia_cores.h), so packaging
 // scripts never keep a second list.
 //
-//   list_cores <target> cores     one line per core that some system uses on that target: <core> <source> <license class>
-//   list_cores <target> systems   one line per system: <system> <core or -> <source>
+//   list_cores <target> cores     one line per core that some system uses on that target: <core> <source> <license class> <approx kB>
+//   list_cores <target> systems   one line per system: <system> <core or -> <source>; hidden systems show "-"
 //
 // <target>: linux-x86_64 linux-arm64 linux-armhf android-v8a android-v7a
 // <source>: buildbot (libretro buildbot), poniacore (PoniaCore release), android-ndk (built with the NDK in CI)
@@ -53,8 +53,14 @@ int main(int argc, char** argv)
     if (list_cores) {
         for (const std::string& core : cores) {
             const ponia::CoreInfo* info = ponia::core_info(core);
-            std::printf("%s %s %s\n", core.c_str(), source_of(target, core), info && info->noncommercial ? "noncommercial" : "commercial-ok");
+            std::printf("%s %s %s %u\n", core.c_str(), source_of(target, core),
+                        info && info->noncommercial ? "noncommercial" : "commercial-ok", info ? info->approx_kb : 0u);
         }
+    } else {
+        int m = 0;
+        const char* const* unsupported = ponia::unsupported_systems(m);
+        for (int i = 0; i < m; ++i)
+            std::printf("%s - unsupported\n", unsupported[i]);
     }
     return 0;
 }

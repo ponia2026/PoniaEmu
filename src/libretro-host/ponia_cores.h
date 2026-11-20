@@ -92,6 +92,7 @@ inline bool parse_target(const char* name, Target& out) {
 }
 
 // ---------- which core plays which system, per target ----------
+// 0. Systems in unsupported_systems (Ports, PS2, Wii, Xbox, ...) are recognised but hidden on every target.
 // 1. Each system has ONE default core (the table below). It is what every target uses unless a rule says otherwise.
 // 2. A rule (target_rules) changes one system on one target: a replacement core, or "" = the system is not offered on that target
 //    (nothing is downloaded or packed for it, and the frontend hides the system).
@@ -130,15 +131,25 @@ inline const TargetRule* target_rules(int& n) {
         {Target::LinuxArm32, "gc",        "",              "no ARM32 JIT"},
         // 32-bit Android: Dolphin has no ARM32 JIT
         {Target::AndroidV7a, "gc",        "",              "no ARM32 JIT"},
-        // Ports (PC/Linux programs started through a launch command) are not supported on any target
-        {Target::LinuxX64,   "ports",     "",              "not supported"},
-        {Target::LinuxArm64, "ports",     "",              "not supported"},
-        {Target::LinuxArm32, "ports",     "",              "not supported"},
-        {Target::AndroidV8a, "ports",     "",              "not supported"},
-        {Target::AndroidV7a, "ports",     "",              "not supported"},
     };
     n = (int)(sizeof T / sizeof T[0]);
     return T;
+}
+
+// Systems that are recognised (ponia_systems.h) but supported on NO target: they are hidden everywhere and nothing is
+// downloaded or packed for them. To start supporting one, move it to system_table with a default core.
+// Ports are PC/Linux programs started through a launch command; the others have no core that runs on the boards PoniaEmu targets.
+inline const char* const* unsupported_systems(int& n) {
+    static const char* const T[] = {"ports", "ps2", "ps3", "vita", "wii", "wiiu", "3ds", "switch", "xbox", "xbox360"};
+    n = (int)(sizeof T / sizeof T[0]);
+    return T;
+}
+
+inline bool system_unsupported(const std::string& key) {
+    int n; const char* const* T = unsupported_systems(n);
+    for (int i = 0; i < n; ++i)
+        if (key == T[i]) return true;
+    return false;
 }
 
 struct PoniaCoreRow { Target target; const char* id; };
@@ -170,6 +181,8 @@ inline const TargetRule* rule_for(Target t, const std::string& key) {
 // The core for a system on a target: the rule's replacement, else the default. Empty when the system has no core
 // there (a rule with "", or a system without a default core).
 inline std::string core_for_system_on(Target t, const std::string& key) {
+    if (system_unsupported(key))
+        return std::string();
     if (const TargetRule* r = rule_for(t, key))
         return r->core;
     int n; const SystemCore* T = system_table(n);
@@ -180,6 +193,8 @@ inline std::string core_for_system_on(Target t, const std::string& key) {
 
 // Is the system hidden on that target (a rule says it is not offered there)?
 inline bool system_hidden_on(Target t, const std::string& key) {
+    if (system_unsupported(key))
+        return true;
     const TargetRule* r = rule_for(t, key);
     return r && r->core[0] == '\0';
 }
