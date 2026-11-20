@@ -178,7 +178,7 @@ bool load_core(const char* path) {
 
 // ---------- global state ----------
 struct Frontend {
-    std::string system_dir = ".", save_dir = ".", content_path, base_name, shot_path;
+    std::string system_dir = ".", save_dir = ".", content_path, base_name, shot_path, screen_shot_path;
     std::map<std::string, std::string> opt_default, opt_user;
     retro_pixel_format fmt = RETRO_PIXEL_FORMAT_0RGB1555;
     unsigned width = 0, height = 0;
@@ -508,6 +508,21 @@ bool zc_init() {
     return true;
 }
 
+// Does this platform have OpenGL ES only (no desktop OpenGL)? Android and the ARM boards (Mali and similar) do; a PC has both.
+// PONIA_GL=gles or PONIA_GL=desktop overrides the guess.
+bool gles_only() {
+    static const int forced = [] {
+        const char* e = std::getenv("PONIA_GL");
+        return !e ? -1 : (std::strcmp(e, "gles") == 0 ? 1 : (std::strcmp(e, "desktop") == 0 ? 0 : -1));
+    }();
+    if (forced >= 0) return forced == 1;
+#if defined(__ANDROID__) || defined(__aarch64__) || defined(__arm__)
+    return true;
+#else
+    return false;
+#endif
+}
+
 // After the SDL window/renderer exist: create the core's GL context + offscreen FBO, then tell the core (context_reset).
 bool hw_setup(const retro_system_av_info& av) {
     const auto t = F.hw.context_type;
@@ -520,6 +535,17 @@ bool hw_setup(const retro_system_av_info& av) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, maj); SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, min);
     SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
     F.hw_ctx = SDL_GL_CreateContext(F.win);
+    // A core may ask for a GLES version the driver does not offer (for example 3.2 on a GLES 3.1 GPU): try the lower ones; the core
+    // checks the version it really got.
+    if (!F.hw_ctx && es) {
+        static const int lower[][2] = {{3, 1}, {3, 0}};
+        for (const auto& v : lower) {
+            if (v[0] * 10 + v[1] >= maj * 10 + min) continue;
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, v[0]); SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, v[1]);
+            F.hw_ctx = SDL_GL_CreateContext(F.win);
+            if (F.hw_ctx) { plog("poniaplay: GLES %d.%d is not available, using %d.%d\n", maj, min, v[0], v[1]); maj = v[0]; min = v[1]; break; }
+        }
+    }
     if (!F.hw_ctx) { plog("poniaplay: cannot create GL context (%d.%d %s): %s\n", maj, min, es ? "ES" : "GL", SDL_GetError()); return false; }
     SDL_GL_MakeCurrent(F.win, F.hw_ctx);
     if (!gl::load_all()) { plog("poniaplay: GL functions missing\n"); return false; }
@@ -586,18 +612,14 @@ bool env_cb(unsigned cmd, void* data) {
         F.width = a->geometry.base_width; F.height = a->geometry.base_height; F.aspect = a->geometry.aspect_ratio;
         F.fps = a->timing.fps; return true; }
     case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER:
-#ifdef __ANDROID__
-        *(unsigned*)data = RETRO_HW_CONTEXT_OPENGLES3;
-#else
-        *(unsigned*)data = RETRO_HW_CONTEXT_OPENGL_CORE;
-#endif
+        *(unsigned*)data = gles_only() ? RETRO_HW_CONTEXT_OPENGLES3 : RETRO_HW_CONTEXT_OPENGL_CORE;
         return true;
     case RETRO_ENVIRONMENT_SET_HW_RENDER: {
         auto* cb = (retro_hw_render_callback*)data;
         bool ok = (cb->context_type == RETRO_HW_CONTEXT_OPENGLES2 || cb->context_type == RETRO_HW_CONTEXT_OPENGLES3 || cb->context_type == RETRO_HW_CONTEXT_OPENGLES_VERSION);
-#ifndef __ANDROID__
-        ok = ok || cb->context_type == RETRO_HW_CONTEXT_OPENGL || cb->context_type == RETRO_HW_CONTEXT_OPENGL_CORE;
-#endif
+        // Desktop OpenGL is refused on GLES-only platforms, so a core that tries several context types (Dolphin does) moves on to GLES.
+        if (!gles_only())
+            ok = ok || cb->context_type == RETRO_HW_CONTEXT_OPENGL || cb->context_type == RETRO_HW_CONTEXT_OPENGL_CORE;
         if (!ok) { plog("poniaplay: unsupported HW context type %d\n", (int)cb->context_type); return false; }
         cb->get_current_framebuffer = hw_get_fbo;
         cb->get_proc_address = hw_get_proc;
@@ -929,6 +951,19 @@ void present() {
     }
     draw_hud(ow, oh);
     if (F.menu) draw_menu(ow, oh);
+    if (!F.screen_shot_path.empty()) {
+        static int shown = 0;
+        if (++shown == 120) {   // read back the renderer's own output, i.e. what is about to go to the screen
+            std::vector<uint8_t> px((size_t)ow * oh * 4);
+            if (SDL_RenderReadPixels(F.ren, nullptr, SDL_PIXELFORMAT_ABGR8888, px.data(), ow * 4) == 0) {
+                if (FILE* f = std::fopen(F.screen_shot_path.c_str(), "wb")) {
+                    std::fprintf(f, "P6\n%d %d\n255\n", ow, oh);
+                    for (size_t i = 0; i < (size_t)ow * oh; ++i) std::fwrite(&px[i * 4], 1, 3, f);
+                    std::fclose(f);
+                }
+            }
+        }
+    }
     SDL_RenderPresent(F.ren);
 }
 
@@ -1322,6 +1357,7 @@ int ponia_play(int argc, char** argv) {
         else if (a == "--sharpen") F.sharpen = (float)std::atof(next().c_str());   // 0=off, try 0.3~0.8
         else if (a == "--frames") F.max_frames = (unsigned)std::atoi(next().c_str());
         else if (a == "--shot") F.shot_path = next();
+        else if (a == "--shot-screen") F.screen_shot_path = next();   // debug: what the renderer really drew (software-core path), taken at frame 120
         else if (a == "--option") { std::string kv = next(); size_t p = kv.find('='); if (p != std::string::npos) F.opt_user[kv.substr(0, p)] = kv.substr(p + 1); }
     }
     ::setenv("TMPDIR", F.save_dir.c_str(), 1);   // Android has no /tmp; some cores (AppleWin) use tmpfile()
@@ -1376,7 +1412,12 @@ int ponia_play(int argc, char** argv) {
             ::unlink(tmp.c_str());
         } else plog("poniaplay: no Dolphin Sys data (BIOS folder / APK pack missing)\n");
 #else
-        plog("poniaplay: Dolphin needs dolphin-emu/Sys in the BIOS folder\n");
+        // Linux: the installation package carries the same pack (share/poniaemu/packs/Dolphin.zip, next to bin/); unpack it the first time.
+        const std::string pack = exe_dir() + "/../share/poniaemu/packs/Dolphin.zip";
+        std::string err;
+        if (file_exists(pack) && ponia::archive_extract_all(pack, F.system_dir, err, 256ull << 20))
+            plog("poniaplay: Dolphin Sys unpacked into %s\n", F.system_dir.c_str());
+        else plog("poniaplay: Dolphin needs dolphin-emu/Sys in the BIOS folder%s%s\n", err.empty() ? "" : ": ", err.c_str());
 #endif
     }
     { size_t q = core_path.find_last_of("/\\"); F.core_name = core_path.substr(q == std::string::npos ? 0 : q + 1); F.no_serialize = F.core_name.find("yabasanshiro") != std::string::npos && !g_tmp_patched;   // when the tmpfile patch succeeded, saving does not have to be paused
