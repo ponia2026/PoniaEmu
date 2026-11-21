@@ -24,7 +24,7 @@ GenericOkCancelDialog
 
     title: qsTr("Reboot") + api.tr
     message: qsTr("The system will reboot. Are you sure?") + api.tr
-    symbol: "\u21BB"
+    symbol: "\u25D0"   // half circle: the reload arrow U+21BB is not in the bundled font
 
     onAccept: Internal.system.reboot()
 }

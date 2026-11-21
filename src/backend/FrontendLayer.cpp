@@ -56,7 +56,7 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
     // Note: the pointer to the Api is non-owning and constant during the runtime
 }
 
-void FrontendLayer::rebuild()
+void FrontendLayer::rebuild(bool after_game)
 {
     Q_ASSERT(!m_engine);
 
@@ -82,6 +82,7 @@ void FrontendLayer::rebuild()
     m_engine->rootContext()->setContextProperty(QStringLiteral("api"), m_api_public);
     m_engine->rootContext()->setContextProperty(QStringLiteral("Api"), m_api_public);
     m_engine->rootContext()->setContextProperty(QStringLiteral("Internal"), m_api_private);
+    m_engine->rootContext()->setContextProperty(QStringLiteral("PoniaAfterGame"), after_game);
     m_engine->load(QUrl(QStringLiteral("qrc:/frontend/main.qml")));
 
     emit rebuildComplete();

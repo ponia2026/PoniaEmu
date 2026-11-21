@@ -223,7 +223,8 @@ Window {
         id: splashScreen
         focus: true
         enabled: false
-        visible: focus
+        // no splash when the frontend comes back after a game (it was rebuilt, not started): the theme just appears
+        visible: focus && !(typeof PoniaAfterGame !== "undefined" && PoniaAfterGame)
 
         readonly property bool dataLoading: Internal.scanner.running
         readonly property bool skinLoading: theme.status === Loader.Null || theme.status === Loader.Loading

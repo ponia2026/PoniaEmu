@@ -287,6 +287,44 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
 
 #ifndef Q_OS_ANDROID
     Q_ASSERT(!m_process);
+    // When the frontend has to give up the screen (KMS/DRM consoles), that must be finished BEFORE the program starts: a program
+    // that starts first (a small core loads in a blink) can find the screen still owned by the frontend, or have the frontend's
+    // cleanup run over its picture. The Backend then calls startPending() when the screen is free.
+    if (m_before_start) {
+        m_pending_command = command;
+        m_pending_args = args;
+        m_pending_workdir = workdir;
+        m_has_pending = true;
+        if (m_before_start())
+            return;
+        m_has_pending = false;
+    }
+#endif
+    startProcessNow(command, args, workdir);
+}
+
+void ProcessLauncher::startPending()
+{
+    if (!m_has_pending)
+        return;
+    m_has_pending = false;
+    startProcessNow(m_pending_command, m_pending_args, m_pending_workdir);
+#ifndef Q_OS_ANDROID
+    // Same as when the frontend is torn down after the program started (onTeardownComplete): while the program has the screen
+    // nothing else is processed, and the end of the program is reported from here.
+    if (!m_process)   // it could not be started: processLaunchError was reported
+        return;
+    m_waiting_after_teardown = true;
+    m_process->waitForFinished(-1);
+    m_waiting_after_teardown = false;
+    emit processFinished();
+#endif
+}
+
+void ProcessLauncher::startProcessNow(const QString& command, const QStringList& args, const QString& workdir)
+{
+#ifndef Q_OS_ANDROID
+    Q_ASSERT(!m_process);
     m_process = new QProcess(this);
 
     // set up signals and slots

@@ -264,7 +264,7 @@ FocusScope {
                 Text {
                     anchors.centerIn: parent
                     visible: ticked
-                    text: "✓"
+                    text: "■"   // filled square: the check mark U+2713 is not in the bundled font
                     color: "#fff"
                     font.bold: true
                     font.pixelSize: parent.height * 0.8

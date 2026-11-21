@@ -39,7 +39,8 @@ class FrontendLayer : public QObject {
 public:
     explicit FrontendLayer(QObject* const api_public, QObject* const api_private, QObject* parent = nullptr);
 
-    void rebuild();
+    // after_game: the frontend is rebuilt because a game ended (not a cold start); the QML can skip its splash screen then
+    void rebuild(bool after_game = false);
     void teardown();
     void bringToFront();
     bool isLoaded() const { return m_engine; }

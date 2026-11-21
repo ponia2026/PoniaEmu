@@ -298,6 +298,11 @@ Backend::Backend(const CliArgs& args)
 
     QObject::connect(m_frontend, &FrontendLayer::teardownComplete,
                      m_launcher, &ProcessLauncher::onTeardownComplete);
+    QObject::connect(m_frontend, &FrontendLayer::teardownComplete,
+                     [this](){ onTeardownDone(); });
+    QObject::connect(m_launcher, &ProcessLauncher::processLaunchError,
+                     [this](){ onProcessLaunchFailed(); });
+    m_launcher->setBeforeStart([this](){ return beforeProcessStart(); });
 
     // when the game ends, the Launcher wakes up the Api and the Frontend
     QObject::connect(m_launcher, &ProcessLauncher::processFinished,
@@ -379,11 +384,14 @@ void Backend::onProcessLaunched()
     }
 
     if (delay_sec == 0) {
-        m_frontend->teardown();
+        // normally the frontend is already gone: it was torn down before the program started (beforeProcessStart)
+        if (!m_screen_released && m_frontend->isLoaded()) {
+            m_frontend->teardown();
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
-        if (QGuiApplication::platformName() == QLatin1String("eglfs"))
-            set_drm_master(false);
+            if (QGuiApplication::platformName() == QLatin1String("eglfs"))
+                set_drm_master(false);
 #endif
+        }
     }
     else if (delay_sec > 0) {
         Log::info(LOGMSG("Keeping the frontend visible for %1 seconds").arg(delay_sec));
@@ -402,8 +410,56 @@ void Backend::onProcessLaunched()
     m_api_private->gamepad().stop();
 }
 
+// Called right before a program is started. When the frontend is going to hide (the default delay of 0, or a platform that allows
+// only one program on the screen), tear it down first and start the program only when that is done and the screen has been given up.
+bool Backend::beforeProcessStart()
+{
+#ifdef Q_OS_ANDROID
+    return false;
+#else
+    int delay_sec = AppSettings::general.hide_delay_after_launch;
+    if (delay_sec != 0 && platform_requires_hiding())
+        delay_sec = 0;
+    if (delay_sec != 0 || !m_frontend->isLoaded())
+        return false;
+
+    m_start_after_teardown = true;
+    m_frontend->teardown();   // asynchronous: teardownComplete follows, and onTeardownDone() starts the program
+    return true;
+#endif
+}
+
+void Backend::onTeardownDone()
+{
+    if (!m_start_after_teardown)
+        return;
+    m_start_after_teardown = false;
+    m_screen_released = true;
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+    if (QGuiApplication::platformName() == QLatin1String("eglfs"))
+        set_drm_master(false);
+#endif
+    m_launcher->startPending();
+}
+
+// The program could not be started although the frontend has already been torn down: bring the frontend back.
+void Backend::onProcessLaunchFailed()
+{
+    if (!m_screen_released)
+        return;
+    m_screen_released = false;
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+    if (QGuiApplication::platformName() == QLatin1String("eglfs"))
+        set_drm_master(true);
+#endif
+    if (!m_frontend->isLoaded())
+        m_frontend->rebuild();
+    m_api_private->gamepad().start(m_args);
+}
+
 void Backend::onProcessFinished()
 {
+    m_screen_released = false;
     m_hide_timer->stop();
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
     if (QGuiApplication::platformName() == QLatin1String("eglfs"))
@@ -413,7 +469,7 @@ void Backend::onProcessFinished()
     if (m_frontend->isLoaded())
         m_frontend->bringToFront();
     else
-        m_frontend->rebuild();
+        m_frontend->rebuild(true);
 
     m_api_private->gamepad().start(m_args);
 }

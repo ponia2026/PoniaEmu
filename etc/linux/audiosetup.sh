@@ -147,10 +147,17 @@ strip_block() {   # file
     $SUDO sed -i "/^$MARK_BEGIN\$/,/^$MARK_END\$/d" "$1"
 }
 
+PULSE_DROPIN=/etc/systemd/system/pulseaudio-system.service.d/poniaemu-audio.conf
+
 reset() {
     strip_block "$ASOUND"
     strip_block "$PULSE_SYSTEM"
     [ -s "$ASOUND" ] || $SUDO rm -f "$ASOUND"
+    if [ -f "$PULSE_DROPIN" ]; then
+        $SUDO rm -f "$PULSE_DROPIN"
+        $SUDO rmdir "$(dirname "$PULSE_DROPIN")" 2>/dev/null || true
+        $SUDO systemctl daemon-reload 2>/dev/null || true
+    fi
     say "Removed the audio settings of this script."
 }
 
@@ -188,6 +195,15 @@ EOF
             printf '%s\n' "set-default-sink ponia_hdmi"
             printf '%s\n' "$MARK_END"
         } | $SUDO tee -a "$PULSE_SYSTEM" >/dev/null
+        # At boot PulseAudio can start before the mixer routing is restored; then the HDMI output cannot be opened, only a null
+        # output remains, and the player (which prefers PulseAudio) plays into nothing. Start it after the sound state is restored,
+        # and restore it once more right before it starts.
+        if command -v systemctl >/dev/null 2>&1 && [ -f /etc/systemd/system/pulseaudio-system.service ]; then
+            $SUDO mkdir -p "$(dirname "$PULSE_DROPIN")"
+            printf '%s\n' "[Unit]" "After=sound.target alsa-restore.service alsa-state.service" "[Service]" \
+                "ExecStartPre=-/usr/sbin/alsactl restore" | $SUDO tee "$PULSE_DROPIN" >/dev/null
+            $SUDO systemctl daemon-reload 2>/dev/null || true
+        fi
         $SUDO systemctl restart pulseaudio-system.service 2>/dev/null || $SUDO systemctl restart pulseaudio 2>/dev/null || true
     fi
     say "HDMI audio set to card $card, device $dev${letter:+ (I2S $letter)} at ${VOLUME}%."

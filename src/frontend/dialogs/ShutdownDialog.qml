@@ -24,7 +24,7 @@ GenericOkCancelDialog
 
     title: qsTr("Shutdown") + api.tr
     message: qsTr("The system will shut down. Are you sure?") + api.tr
-    symbol: "\u23FB"
+    symbol: "\u25CE"   // bullseye: the power symbol U+23FB is not in the bundled font
 
     onAccept: Internal.system.shutdown()
 }

@@ -156,7 +156,7 @@ FocusScope {
                 width: height * 0.75
 
                 color: "#d88"
-                text: "\u2212" // minus
+                text: "\u2013" // minus (en dash: U+2212 is not in the bundled font)
                 onPressed: root.delKey(root.eventId, modelData.keyCode);
             }
         }

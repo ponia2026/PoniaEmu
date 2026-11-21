@@ -53,10 +53,15 @@ private:
     QTimer* m_hide_timer;
     bool m_android_game_running = false;
     bool m_android_left_foreground = false;
+    bool m_start_after_teardown = false;   // a program is held back until the frontend has given up the screen
+    bool m_screen_released = false;        // the frontend was torn down before the program started
 
     void onScanRequested(bool force_refresh = false);
     void onScanFinished();
     void onFavoritesChanged();
+    bool beforeProcessStart();
+    void onTeardownDone();
+    void onProcessLaunchFailed();
     void onProcessLaunched();
     void onProcessFinished();
 };

@@ -20,6 +20,8 @@
 #include <QObject>
 #include <QProcess>
 
+#include <functional>
+
 namespace model { class GameFile; }
 
 
@@ -37,6 +39,11 @@ class ProcessLauncher : public QObject {
 
 public:
     explicit ProcessLauncher(QObject* parent = nullptr);
+
+    // Set by the Backend. It is called right before the program is started and returns true when it needs the frontend to give up
+    // the screen first: the program is then held back until the Backend calls startPending() (see Backend::beforeProcessStart).
+    void setBeforeStart(std::function<bool()> callback) { m_before_start = std::move(callback); }
+    void startPending();
 
 signals:
     void processLaunchOk();
@@ -60,7 +67,14 @@ private:
     QProcess* m_process;
     bool m_waiting_after_teardown;
 
+    std::function<bool()> m_before_start;
+    bool m_has_pending = false;
+    QString m_pending_command;
+    QStringList m_pending_args;
+    QString m_pending_workdir;
+
     void runProcess(const QString&, const QStringList&, const QString&);
+    void startProcessNow(const QString&, const QStringList&, const QString&);
 
     void beforeRun(const QString&);
     void afterRun();

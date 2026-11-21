@@ -181,7 +181,7 @@ FocusScope {
                 GameDirEditorButton {
                     id: buttonDel
 
-                    icon: "\u2212"
+                    icon: "\u2013"   // minus (en dash: U+2212 is not in the bundled font)
                     color: "#e43"
                     onPressed: {
                         Internal.settings.removeGameDirs(root.selectedIndices);
