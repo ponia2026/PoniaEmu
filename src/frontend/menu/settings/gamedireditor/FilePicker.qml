@@ -261,13 +261,24 @@ FocusScope {
                 border.width: 2
                 border.color: ticked ? "#4c5" : "#aaa"
 
-                Text {
-                    anchors.centerIn: parent
+                Canvas {   // check mark drawn as a path: it does not depend on any font having the glyph
+                    anchors.fill: parent
                     visible: ticked
-                    text: "■"   // filled square: the check mark U+2713 is not in the bundled font
-                    color: "#fff"
-                    font.bold: true
-                    font.pixelSize: parent.height * 0.8
+                    onVisibleChanged: requestPaint()
+                    onWidthChanged: requestPaint()
+                    onPaint: {
+                        var c = getContext("2d");
+                        c.reset();
+                        var w = width, h = height;
+                        c.strokeStyle = "#fff";
+                        c.lineWidth = Math.max(3, h * 0.14);
+                        c.lineCap = "round"; c.lineJoin = "round";
+                        c.beginPath();
+                        c.moveTo(w * 0.22, h * 0.54);
+                        c.lineTo(w * 0.43, h * 0.74);
+                        c.lineTo(w * 0.78, h * 0.28);
+                        c.stroke();
+                    }
                 }
             }
 

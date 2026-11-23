@@ -152,7 +152,6 @@ Item {
                         x: 20; width: parent.width - 56
                         text: g ? g.title : ""
                         font.family: gv.fontUi; font.pixelSize: 16; font.bold: sel
-                        fontSizeMode: Text.HorizontalFit; minimumPixelSize: 13
                         elide: Text.ElideRight
                         color: sel ? gv.ink : gv.textSub
                     }
@@ -224,12 +223,13 @@ Item {
                 var g = gv.game;
                 if (!g) return "";
                 var t = g.description || g.summary;
-                if (t) return t;
+                // A name that does not fit the title line is cut with "..."; the full name goes first in the scrolling text instead of shrinking the font.
+                var full = ttl.cut ? g.title + "\n\n" : "";                if (t) return full + t;
                 var parts = [];
                 if (g.developer) parts.push(g.developer);
                 if (g.publisher && g.publisher !== g.developer) parts.push(g.publisher);
                 if (g.genre) parts.push(g.genre);
-                return parts.join("  ·  ");
+                return full + parts.join("  ·  ");
             }
 
             TextMetrics {   // natural width of the game name: the logo sits right next to the name instead of being pushed to the far right
@@ -238,12 +238,12 @@ Item {
             }
             Text {
                 id: ttl
+                readonly property bool cut: ttlMetrics.advanceWidth + 4 > width
                 width: Math.min(ttlMetrics.advanceWidth + 4, parent.width - (logo.source.toString() !== "" ? 126 : 0)); height: 32
                 text: gv.game ? gv.game.title : ""
                 font.family: gv.hasCjk(text) ? gv.fontUi : gv.fontRound; font.pixelSize: 24; font.bold: true
                 verticalAlignment: Text.AlignVCenter
                 color: gv.textMain
-                fontSizeMode: Text.HorizontalFit; minimumPixelSize: 14
                 elide: Text.ElideRight
             }
             Image {

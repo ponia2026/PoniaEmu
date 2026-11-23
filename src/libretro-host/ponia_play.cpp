@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 #include <unistd.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -207,7 +208,7 @@ struct Frontend {
     std::string osd; Uint32 osd_until = 0;   // short on-screen message
     int select_pulse = 0;       // frames left for a SELECT tap
     unsigned frames_done = 0, max_frames = 0;
-    double fps_now = 0; Uint32 fps_t0 = 0; unsigned fps_n = 0;
+    double fps_now = 0, speed_now = -1; Uint32 fps_t0 = 0; unsigned fps_n = 0;   // speed_now: emulation speed (1 = real time), measured from the audio the core produces; -1 = unknown
     // ---- hardware (OpenGL / GLES) rendering cores: they draw into our offscreen FBO, we read it back every frame ----
     bool hw_req = false;                 // the core asked for SET_HW_RENDER
     retro_hw_render_callback hw{};       // our copy (callbacks filled in)
@@ -217,7 +218,7 @@ struct Frontend {
     // ---- zero-copy present (hardware cores): the core's FBO texture is drawn straight to the window by a shader quad ----
     bool zc = false, zc_off = false;     // zc = active; zc_off = --no-zerocopy (force the old read-back path for A/B tests)
     unsigned zc_prog = 0, zc_vbo = 0, zc_vao = 0, zc_w = 0, zc_h = 0;   // zc_w/h = size of the last frame inside hw_tex
-    int zc_loc_tex = -1, zc_loc_sharp = -1, zc_loc_texel = -1, zc_loc_win = -1;
+    int zc_loc_tex = -1, zc_loc_sharp = -1, zc_loc_texel = -1, zc_loc_win = -1, zc_loc_sb = -1;
     float sharpen = 0.f;   // --sharpen: 0 = off; ~0.3..0.8 = edge sharpening applied by the present shader (zero-copy path only)
     unsigned hud_tex = 0, menu_tex = 0; int hud_tw = 0, hud_th = 0, menu_tw = 0, menu_th = 0;   // overlay textures (size as allocated on the GPU)
     SDL_Surface* hud_surf = nullptr; SDL_Renderer* hud_ren = nullptr;      // overlays are painted on the CPU with SDL's software renderer
@@ -419,6 +420,8 @@ inline bool load_all() {
 struct Perf {
     double run = 0, vcb = 0, read = 0, upload = 0, draw = 0, swap = 0;   // accumulated milliseconds
     unsigned n = 0;
+    unsigned long audio = 0;   // audio frames the core produced: emulation speed = audio / sample rate
+    unsigned shown = 0;        // new pictures (not duplicates) the core delivered
 } P;
 inline double now_ms() { return (double)SDL_GetPerformanceCounter() * 1000.0 / (double)SDL_GetPerformanceFrequency(); }
 
@@ -473,11 +476,21 @@ bool zc_init() {
         "void main() { gl_Position = vec4(aPos, 0.0, 1.0); vUV = aUV;\n"
         "  vNS = vec4(aUV.x, aUV.y - uTexel.y, aUV.x, aUV.y + uTexel.y); vEW = vec4(aUV.x + uTexel.x, aUV.y, aUV.x - uTexel.x, aUV.y); }\n";
     static const char* fs =
-        "#ifdef GL_ES\nprecision mediump float;\n#endif\n"
+        "#ifdef GL_ES\n#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n#endif\n"
         "varying vec2 vUV; varying vec4 vNS; varying vec4 vEW; uniform sampler2D uTex;\n"
+        "uniform vec4 uSB;\n"   // software frames: x,y = texture size, z = screen pixels per frame pixel, w = 1 when sharp-bilinear scaling is on
         "uniform float uSharp;\n"   // uTexel lives in the vertex stage only (a uniform shared by both stages must have equal precision). Edge pixels may read 1 texel outside the picture; the min/max clamp below limits the damage
         "void main() {\n"
-        "  vec4 c = texture2D(uTex, vUV);\n"
+        "  vec2 uv = vUV;\n"
+        // sharp bilinear: each frame pixel stays crisp, only the seams between pixels are smoothed
+        // nearest: sample exactly at the texel centre (hardware bilinear then returns that texel unmixed).
+        // sharp: same, except within about one output pixel of the seam between two texels, where the sample slides to the seam (50/50 blend).
+        "  if (uSB.w > 0.5) {\n"
+        "    vec2 px = vUV * uSB.xy; vec2 fl = floor(px); vec2 off = vec2(0.0);\n"
+        "    if (uSB.w < 1.5) { vec2 d = px - fl - 0.5; vec2 hw = vec2(0.5 / uSB.z); off = sign(d) * clamp((abs(d) - 0.5 + hw) / (2.0 * hw), 0.0, 0.5); }\n"
+        "    uv = (fl + 0.5 + off) / uSB.xy;\n"
+        "  }\n"
+        "  vec4 c = texture2D(uTex, uv);\n"
         "  if (uSharp > 0.0) {\n"
         "    vec3 n = texture2D(uTex, vNS.xy).rgb;\n"
         "    vec3 s = texture2D(uTex, vNS.zw).rgb;\n"
@@ -500,6 +513,7 @@ bool zc_init() {
     if (!ok) { plog("poniaplay: zero-copy shader link failed, using read-back\n"); return false; }
     F.zc_loc_tex = gl::zc.GetUniformLocation(F.zc_prog, "uTex");
     F.zc_loc_sharp = gl::zc.GetUniformLocation(F.zc_prog, "uSharp");
+    F.zc_loc_sb = gl::zc.GetUniformLocation(F.zc_prog, "uSB");
     F.zc_loc_texel = gl::zc.GetUniformLocation(F.zc_prog, "uTexel");
     F.zc_loc_win = gl::zc.GetUniformLocation(F.zc_prog, "uWin");
     if (gl::zc.GenVertexArrays) { gl::zc.GenVertexArrays(1, &F.zc_vao); gl::zc.BindVertexArray(F.zc_vao); }
@@ -510,6 +524,55 @@ bool zc_init() {
     gl::zc.BindBuffer(gl::ARRAY_BUFFER, 0);
     return true;
 }
+
+// ---------- GPU clock: the default devfreq governor (simple_ondemand) may sit at the lowest clock while a game runs ----------
+// On the Amlogic boards the Mali stayed at 125 MHz (of 800) during a PSP game, which halved the frame rate. While a game is running the GPU
+// governor is switched to "performance" (needs root; silently skipped otherwise) and the previous one is put back on exit.
+// PONIA_GPU_GOVERNOR=keep leaves the system setting alone.
+#if defined(__linux__) && !defined(__ANDROID__)
+std::vector<std::pair<std::string, std::string>> g_gpu_saved;   // governor file, previous governor
+
+std::string sysfs_line(const std::string& path) {
+    std::string s;
+    if (FILE* f = std::fopen(path.c_str(), "r")) {
+        char b[256]; if (std::fgets(b, sizeof b, f)) s = b;
+        std::fclose(f);
+    }
+    while (!s.empty() && (s.back() == '\n' || s.back() == ' ')) s.pop_back();
+    return s;
+}
+bool sysfs_write(const std::string& path, const std::string& v) {
+    FILE* f = std::fopen(path.c_str(), "w");
+    if (!f) return false;
+    const bool ok = std::fputs(v.c_str(), f) >= 0;
+    return std::fclose(f) == 0 && ok;
+}
+void gpu_boost_off() {
+    for (const auto& s : g_gpu_saved) sysfs_write(s.first, s.second);
+    g_gpu_saved.clear();
+}
+void gpu_boost_on() {
+    const char* e = std::getenv("PONIA_GPU_GOVERNOR");
+    if (e && std::strcmp(e, "keep") == 0) return;
+    const std::string dir = "/sys/class/devfreq";
+    if (DIR* d = opendir(dir.c_str())) {
+        while (const dirent* ent = readdir(d)) {
+            const std::string n = ent->d_name;
+            if (n.find("gpu") == std::string::npos && n.find("mali") == std::string::npos) continue;
+            const std::string gov = dir + "/" + n + "/governor";
+            const std::string cur = sysfs_line(gov);
+            if (cur.empty() || cur == "performance") continue;
+            if (sysfs_line(dir + "/" + n + "/available_governors").find("performance") == std::string::npos) continue;
+            if (sysfs_write(gov, "performance")) { g_gpu_saved.emplace_back(gov, cur); plog("poniaplay: GPU governor %s -> performance\n", cur.c_str()); }
+        }
+        closedir(d);
+    }
+    if (!g_gpu_saved.empty()) std::atexit(gpu_boost_off);
+}
+#else
+void gpu_boost_on() {}
+void gpu_boost_off() {}
+#endif
 
 // Does this platform have OpenGL ES only (no desktop OpenGL)? Android and the ARM boards (Mali and similar) do; a PC has both.
 // PONIA_GL=gles or PONIA_GL=desktop overrides the guess.
@@ -575,10 +638,10 @@ void hw_teardown() {
     SDL_GL_DeleteContext(F.hw_ctx); F.hw_ctx = nullptr;
 }
 
-// Software cores normally go through an SDL renderer. On the GLES boards started from a console (KMS/DRM) that renderer can fail
-// and fall back to SDL's software renderer, which cannot reach a KMS screen: the game then runs with sound but no picture.
-// There the frames are drawn exactly like those of the hardware cores instead: uploaded to a texture and drawn by the zero-copy quad.
-// PONIA_SWGL=0 turns this off, PONIA_SWGL=1 forces it on other platforms.
+// Software cores normally go through an SDL renderer. On the GLES boards started from the frontend on a console (KMS/DRM) that renderer
+// falls back to SDL's software renderer: a few percent of real speed, no picture and no sound to speak of (checked on a Mali board).
+// There the frames are drawn like those of the hardware cores instead: uploaded to a texture and drawn by the zero-copy quad, with
+// nearest-neighbour sampling done in the shader (PONIA_FILTER). PONIA_SWGL=0 turns this off, PONIA_SWGL=1 forces it on other platforms.
 bool use_sw_gl() {
     if (F.zc_off) return false;
     const char* e = std::getenv("PONIA_SWGL");
@@ -783,7 +846,10 @@ void osd_show(const char* t) { F.osd = t; F.osd_until = SDL_GetTicks() + 1500; }
 // HUD: every on-screen hint (FPS, resolution, save/load, fast-forward, rewind) uses ONE style - white 5x7 text on a
 // translucent plate, right-aligned in the top-right corner, one line per message, always "NAME VALUE" in capitals.
 void hud_collect(std::vector<std::string>& lines) {
-    if (F.show_fps) { char b[24]; std::snprintf(b, sizeof b, "FPS %d", (int)(F.fps_now + 0.5)); lines.push_back(b); }
+    if (F.show_fps) {   // the game's frame rate at its real speed: a core that skips or does not repeat frames (PSP) calls back less often than it plays
+        const double f = F.speed_now >= 0 ? F.fps * std::min(F.speed_now, 1.0) : F.fps_now;
+        char b[24]; std::snprintf(b, sizeof b, "FPS %d", (int)(f + 0.5)); lines.push_back(b);
+    }
     if (F.ff) lines.push_back("@FF");        // two right triangles
     else if (F.rew) lines.push_back("@REW");  // two left triangles
     if (F.osd_until && SDL_GetTicks() < F.osd_until && !F.osd.empty()) lines.push_back(F.osd);
@@ -944,6 +1010,14 @@ void present_zc() {
     z.ClearColor(0.f, 0.f, 0.f, 1.f); z.Clear(gl::COLOR_BUFFER_BIT);
     z.UseProgram(F.zc_prog); z.Uniform1i(F.zc_loc_tex, 0);
     z.Uniform1f(F.zc_loc_sharp, F.sharpen);
+    // software cores (FC, SFC, arcade ...) are pixel art: scale them sharp-bilinear instead of plain bilinear, which blurs text and sprites
+    // PONIA_FILTER=nearest (default, same look as the Android build) | sharp (crisp pixels, seams anti-aliased over about half an output pixel) | bilinear
+    static const int filt_mode = [] {
+        const char* e = std::getenv("PONIA_FILTER");
+        return !e ? 2 : (std::strcmp(e, "sharp") == 0 ? 1 : (std::strcmp(e, "bilinear") == 0 ? 0 : 2));
+    }();
+    const bool pixel_art = F.sw_gl && !F.hw_req && rw > (int)F.zc_w && filt_mode != 0;
+    z.Uniform4f(F.zc_loc_sb, (float)F.hw_w, (float)F.hw_h, 2.f * (float)rw / (float)F.zc_w, pixel_art ? (filt_mode == 2 ? 2.f : 1.f) : 0.f);
     z.Uniform2f(F.zc_loc_texel, 1.f / (float)F.hw_w, 1.f / (float)F.hw_h);
     z.Uniform4f(F.zc_loc_win, std::min(u0, u1), std::min(vlo, vhi), std::max(u0, u1), std::max(vlo, vhi));
     z.ActiveTexture(gl::TEXTURE0);
@@ -951,7 +1025,10 @@ void present_zc() {
     if (z.BindVertexArray) z.BindVertexArray(F.zc_vao);
     g.BindTexture(gl::TEXTURE_2D, F.hw_tex);
     g.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, (int)gl::LINEAR); g.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, (int)gl::LINEAR);   // a core may have changed them
+    z.ColorMask(1, 1, 1, 0);   // the picture must not touch the alpha channel: the window was just cleared to alpha 1, and a core texture can carry alpha 0 (PSP), which a display plane that honours alpha shows as black
     zc_draw(quad);
+    z.ColorMask(1, 1, 1, 1);
+    z.Uniform4f(F.zc_loc_sb, 0.f, 0.f, 0.f, 0.f);
     z.Uniform1f(F.zc_loc_sharp, 0.f);   // HUD / menu overlays go through the same program: never sharpen them
 
     // ---- overlays (HUD, menu): painted on the CPU only when their content changes ----
@@ -1001,6 +1078,27 @@ void present_zc() {
     g.BindTexture(gl::TEXTURE_2D, 0);
 
     const double t1 = now_ms(); P.draw += t1 - t0;
+    if (!F.screen_shot_path.empty()) {   // --shot-screen on the GL path: read back the window's own output just before it is shown (frame PONIA_SHOT_FRAME, default 120)
+        static int shown = 0;
+        static const int at = [] { const char* e = std::getenv("PONIA_SHOT_FRAME"); return e && std::atoi(e) > 0 ? std::atoi(e) : 120; }();
+        // PONIA_SHOT_TRIGGER=<file>: take the shot (again) whenever that file exists, then delete it, so a tester can pick the moment
+        static const char* const trig = std::getenv("PONIA_SHOT_TRIGGER");
+        bool want = (++shown == at);
+        if (trig && shown % 10 == 0) { if (FILE* t = std::fopen(trig, "r")) { std::fclose(t); std::remove(trig); want = true; } }
+        if (want) {
+            std::vector<uint8_t> px((size_t)ow * oh * 4);
+            gl::fn.BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl::fn.PixelStorei(gl::PACK_ALIGNMENT, 1);
+            gl::fn.ReadPixels(0, 0, ow, oh, gl::RGBA, gl::UNSIGNED_BYTE, px.data());
+            { unsigned long long a = 0; unsigned amin = 255; for (size_t i = 3; i < px.size(); i += 4) { a += px[i]; if (px[i] < amin) amin = px[i]; } plog("poniaplay: screen shot alpha avg %llu min %u\n", a /((size_t)ow * oh), amin); }
+            if (FILE* f = std::fopen(F.screen_shot_path.c_str(), "wb")) {
+                std::fprintf(f, "P6\n%d %d\n255\n", ow, oh);
+                for (int y = oh - 1; y >= 0; --y)   // GL rows run bottom-up
+                    for (int x = 0; x < ow; ++x) std::fwrite(&px[((size_t)y * ow + x) * 4], 1, 3, f);
+                std::fclose(f);
+            }
+        }
+    }
     SDL_GL_SwapWindow(F.win);   // vsync: this is where waiting for the display shows up
     P.swap += now_ms() - t1;
 }
@@ -1060,6 +1158,7 @@ const void* hw_read_frame(unsigned w, unsigned h, size_t& pitch) {
 void video_cb(const void* data, unsigned w, unsigned h, size_t pitch) {
     struct Timed { double t0 = now_ms(); ~Timed() { P.vcb += now_ms() - t0; } } timed;   // whole callback (includes the vsync wait inside the swap)
     if (!data) { if (F.draw_frame) { present(); hw_enter(); } return; }   // duplicated frame: re-present previous
+    ++P.shown;
     if (!F.draw_frame) return;                                         // fast-forward: skip in-between frames
     const bool hwf = (data == RETRO_HW_FRAME_BUFFER_VALID);             // hardware core: the frame is in our FBO
     if (hwf && F.zc) {   // zero-copy: the frame never leaves the GPU
@@ -1121,6 +1220,7 @@ void run_core() {
 
 // ---------- audio ----------
 void audio_batch_cb_impl(const int16_t* d, size_t frames) {
+    P.audio += frames;
     if (F.audio && !F.ff && !F.rew) SDL_QueueAudio(F.audio, d, (Uint32)(frames * 4));
 }
 size_t audio_batch_cb(const int16_t* d, size_t frames) { audio_batch_cb_impl(d, frames); return frames; }
@@ -1476,11 +1576,29 @@ int ponia_play(int argc, char** argv) {
             {"applewin", "applewin_machine", "Apple //e (enhanced)"},   // the first value "Apple II (original)" does not boot by itself and stops at the ??@@ screen
             // PSP: 3-frame buffering (same as the standalone version). With the 2 frames that the core defaults to, a Mali-G31 class GPU only reaches 41-55 fps in 2X matches, while 3 frames hold about 60; the price is slightly more input latency
             {"ppsspp", "ppsspp_inflight_frames", "Up to 2"},
+            // PSP games mostly run at 30 fps: the default "render duplicate frames to 60 Hz" draws every frame twice, which doubles the GPU work on a small Mali; 16x anisotropic filtering is the core's default as well
+            {"ppsspp", "ppsspp_frame_duplication", "disabled"},
+            {"ppsspp", "ppsspp_texture_anisotropic_filtering", "disabled"},
+            // skip at most 1 frame, and only when the game falls behind (auto): keeps the speed and the sound steady on a small GPU
+            {"ppsspp", "ppsspp_frameskip", "1"},
+            {"ppsspp", "ppsspp_auto_frameskip", "enabled"},
         };
         size_t q0 = core_path.find_last_of("/\\");
         const std::string cn = core_path.substr(q0 == std::string::npos ? 0 : q0 + 1);
         for (const auto& d : CORE_DEFAULTS)
             if (cn.find(d.core) != std::string::npos && !F.opt_user.count(d.key)) F.opt_user[d.key] = d.val;
+#if !defined(__ANDROID__) && (defined(__aarch64__) || defined(__arm__))
+        // Linux on ARM boards runs the open-source Mesa driver (Panfrost on Mali): every time PPSSPP reads a picture back from the GPU
+        // the whole GPU pipeline has to drain, which costs far more than on the vendor driver Android uses (a Mali-G31 game fell to
+        // ~15 fps waiting on the GPU). Skip those read-backs and render the effect buffers at a lower resolution.
+        static const struct { const char* key; const char* val; } PSP_MESA[] = {
+            {"ppsspp_skip_gpu_readbacks", "enabled"},
+            {"ppsspp_lower_resolution_for_effects", "Balanced"},
+        };
+        if (cn.find("ppsspp") != std::string::npos)
+            for (const auto& d : PSP_MESA)
+                if (!F.opt_user.count(d.key)) F.opt_user[d.key] = d.val;
+#endif
     }
     // The Dolphin core needs dolphin-emu/Sys (GPL data files): when the BIOS folder does not provide it, unpack packs/Dolphin.zip from the APK into the system directory
     if (core_path.find("dolphin") != std::string::npos && !file_exists(F.system_dir + "/dolphin-emu/Sys/codehandler.bin")) {
@@ -1595,6 +1713,7 @@ int ponia_play(int argc, char** argv) {
                              SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_ALLOW_HIGHDPI | ((F.hw_req || want_sw_gl) ? SDL_WINDOW_OPENGL : 0));
     if (!F.win) { plog("SDL window: %s\n", SDL_GetError()); return 4; }
     SDL_ShowCursor(SDL_DISABLE);
+    if (F.hw_req) gpu_boost_on();   // only the 3D (hardware-rendered) cores need the GPU clock; 2D cores leave it alone
     F.sw_gl = want_sw_gl && sw_gl_setup();
     if (!F.sw_gl) {   // the SDL renderer: desktops, hardware cores (which still use it for nothing but a fallback), or when GL drawing failed
         F.ren = SDL_CreateRenderer(F.win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -1640,19 +1759,23 @@ int ponia_play(int argc, char** argv) {
         if (F.select_pulse > 0) --F.select_pulse;
         ++F.frames_done; ++F.fps_n;
         Uint32 t = SDL_GetTicks();
-        if (t - F.fps_t0 >= 1000) { F.fps_now = F.fps_n * 1000.0 / (t - F.fps_t0); if (F.debug_input) {
+        if (t - F.fps_t0 >= 1000) { F.fps_now = F.fps_n * 1000.0 / (t - F.fps_t0); if (F.audio) F.speed_now = P.audio * 1000.0 / (t - F.fps_t0) / (F.sample_rate > 0 ? F.sample_rate : 44100); if (F.debug_input) {
                 plog("fps: %.1f\n", F.fps_now);
                 if (P.n) {   // average milliseconds per frame this second; core = run - vcb (vcb = our video callback, which contains read/upload/draw/swap)
                     const double k = 1.0 / P.n;
                     plog("perf: run %.1f ms = core %.1f + video_cb %.1f [read %.1f, upload %.1f, draw %.1f, swap/vsync %.1f] (%s)\n",
                          P.run * k, (P.run - P.vcb) * k, P.vcb * k, P.read * k, P.upload * k, P.draw * k, P.swap * k, F.zc ? "zero-copy" : "old path");
                 }
+                const double secs = (t - F.fps_t0) / 1000.0;
+                plog("speed: %.0f%% of real time (audio %.0f frames/s), new pictures %.1f/s\n",
+                     100.0 * P.audio / secs / (F.sample_rate > 0 ? F.sample_rate : 44100), P.audio / secs, P.shown / secs);
             }
             P = Perf(); F.fps_n = 0; F.fps_t0 = t; }
         if (F.max_frames && F.frames_done >= F.max_frames) break;
     }
     write_shot();
     save_sram();
+    gpu_boost_off();
     core.unload_game();
     hw_teardown();
     core.deinit();
