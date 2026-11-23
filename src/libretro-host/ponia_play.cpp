@@ -223,6 +223,9 @@ struct Frontend {
     SDL_Surface* hud_surf = nullptr; SDL_Renderer* hud_ren = nullptr;      // overlays are painted on the CPU with SDL's software renderer
     SDL_Surface* menu_surf = nullptr; SDL_Renderer* menu_ren = nullptr;    // and uploaded only when their content changes
     std::string hud_key; int hud_x = 0, hud_wpx = 0, hud_hpx = 0; long long menu_key = -1;
+    // ---- software cores drawn through the same GLES quad as the hardware cores (no SDL renderer, see use_sw_gl) ----
+    bool sw_gl = false;
+    std::vector<uint8_t> sw_rgba;   // the frame converted to RGBA bytes for glTexSubImage2D
     Uint32 tex_pf = 0;                   // pixel format of F.tex
     bool last_hw = false;
     int16_t axis[4] = {0, 0, 0, 0};   // left X/Y, right X/Y (libretro analog, -32768..32767)
@@ -570,6 +573,79 @@ void hw_teardown() {
     if (F.menu_surf) { SDL_FreeSurface(F.menu_surf); F.menu_surf = nullptr; }
     SDL_GL_MakeCurrent(F.win, nullptr);
     SDL_GL_DeleteContext(F.hw_ctx); F.hw_ctx = nullptr;
+}
+
+// Software cores normally go through an SDL renderer. On the GLES boards started from a console (KMS/DRM) that renderer can fail
+// and fall back to SDL's software renderer, which cannot reach a KMS screen: the game then runs with sound but no picture.
+// There the frames are drawn exactly like those of the hardware cores instead: uploaded to a texture and drawn by the zero-copy quad.
+// PONIA_SWGL=0 turns this off, PONIA_SWGL=1 forces it on other platforms.
+bool use_sw_gl() {
+    if (F.zc_off) return false;
+    const char* e = std::getenv("PONIA_SWGL");
+    if (e && *e) return std::strcmp(e, "0") != 0;
+#if defined(__ANDROID__)
+    return false;
+#else
+    return gles_only();
+#endif
+}
+
+// Needs the window to have been created with SDL_WINDOW_OPENGL. On failure everything is undone and the caller uses the SDL renderer.
+bool sw_gl_setup() {
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, gles_only() ? SDL_GL_CONTEXT_PROFILE_ES : SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2); SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, gles_only() ? 0 : 1);
+    SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0);
+    F.hw_ctx = SDL_GL_CreateContext(F.win);
+    if (!F.hw_ctx) { plog("poniaplay: no GL context for software frames (%s), using the SDL renderer\n", SDL_GetError()); return false; }
+    SDL_GL_MakeCurrent(F.win, F.hw_ctx);
+    if (gl::load_all() && (F.zc = zc_init())) {
+        SDL_GL_SetSwapInterval(1);
+        plog("poniaplay: software frames drawn through GL (texture upload + quad)\n");
+        return true;
+    }
+    plog("poniaplay: GL drawing of software frames unavailable, using the SDL renderer\n");
+    F.zc = false;
+    SDL_GL_MakeCurrent(F.win, nullptr);
+    SDL_GL_DeleteContext(F.hw_ctx); F.hw_ctx = nullptr;
+    return false;
+}
+
+// Convert one software frame to RGBA bytes and put it into the texture that present_zc() draws (grown when the frame gets bigger).
+void sw_gl_upload(const void* data, unsigned w, unsigned h, size_t pitch) {
+    hw_enter();
+    if (!F.hw_tex || w > F.hw_w || h > F.hw_h) {
+        if (F.hw_tex) gl::fn.DeleteTextures(1, &F.hw_tex);
+        const unsigned tw = std::max(w, F.hw_w), th = std::max(h, F.hw_h);
+        gl::fn.GenTextures(1, &F.hw_tex); gl::fn.BindTexture(gl::TEXTURE_2D, F.hw_tex);
+        gl::fn.TexImage2D(gl::TEXTURE_2D, 0, (int)gl::RGBA, (int)tw, (int)th, 0, gl::RGBA, gl::UNSIGNED_BYTE, nullptr);
+        gl::fn.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, (int)gl::LINEAR); gl::fn.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, (int)gl::LINEAR);
+        gl::fn.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, (int)gl::CLAMP_TO_EDGE); gl::fn.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, (int)gl::CLAMP_TO_EDGE);
+        F.hw_w = tw; F.hw_h = th;
+    }
+    F.sw_rgba.resize((size_t)w * h * 4);
+    uint8_t* o = F.sw_rgba.data();
+    for (unsigned y = 0; y < h; ++y) {
+        const uint8_t* row = (const uint8_t*)data + (size_t)y * pitch;
+        if (F.fmt == RETRO_PIXEL_FORMAT_XRGB8888) {
+            const uint32_t* p = (const uint32_t*)row;
+            for (unsigned x = 0; x < w; ++x) { const uint32_t v = p[x]; *o++ = (uint8_t)(v >> 16); *o++ = (uint8_t)(v >> 8); *o++ = (uint8_t)v; *o++ = 255; }
+        } else if (F.fmt == RETRO_PIXEL_FORMAT_RGB565) {
+            const uint16_t* p = (const uint16_t*)row;
+            for (unsigned x = 0; x < w; ++x) {
+                const unsigned v = p[x], r = (v >> 11) & 31, g = (v >> 5) & 63, b = v & 31;
+                *o++ = (uint8_t)((r << 3) | (r >> 2)); *o++ = (uint8_t)((g << 2) | (g >> 4)); *o++ = (uint8_t)((b << 3) | (b >> 2)); *o++ = 255;
+            }
+        } else {   // 0RGB1555
+            const uint16_t* p = (const uint16_t*)row;
+            for (unsigned x = 0; x < w; ++x) {
+                const unsigned v = p[x], r = (v >> 10) & 31, g = (v >> 5) & 31, b = v & 31;
+                *o++ = (uint8_t)((r << 3) | (r >> 2)); *o++ = (uint8_t)((g << 3) | (g >> 2)); *o++ = (uint8_t)((b << 3) | (b >> 2)); *o++ = 255;
+            }
+        }
+    }
+    gl::fn.BindTexture(gl::TEXTURE_2D, F.hw_tex);
+    gl::zc.TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, (int)w, (int)h, gl::RGBA, gl::UNSIGNED_BYTE, F.sw_rgba.data());
+    F.zc_w = w; F.zc_h = h;
 }
 
 // ---------- environment ----------
@@ -996,6 +1072,15 @@ void video_cb(const void* data, unsigned w, unsigned h, size_t pitch) {
         }
         present();
         hw_enter();   // the core gets its FBO / viewport back
+        return;
+    }
+    if (F.sw_gl && !hwf) {   // software core on a GLES board: upload the frame and draw it with the same quad as the hardware cores
+        sw_gl_upload(data, w, h, pitch);
+        if (!F.shot_path.empty()) {
+            F.last_w = w; F.last_h = h; F.last_pitch = (unsigned)pitch; F.last_hw = false;
+            F.last_frame.assign((const uint8_t*)data, (const uint8_t*)data + pitch * h);
+        }
+        present();
         return;
     }
     const Uint32 pf = hwf ? SDL_PIXELFORMAT_ABGR8888                    // RGBA bytes as read back from GL
@@ -1505,13 +1590,20 @@ int ponia_play(int argc, char** argv) {
     F.width = av.geometry.base_width; F.height = av.geometry.base_height; F.aspect = av.geometry.aspect_ratio;
     F.fps = av.timing.fps > 1 ? av.timing.fps : 60; F.sample_rate = av.timing.sample_rate;
 
+    const bool want_sw_gl = !F.hw_req && use_sw_gl();
     F.win = SDL_CreateWindow("Ponia", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, F.width * 3, F.height * 3,
-                             SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_ALLOW_HIGHDPI | (F.hw_req ? SDL_WINDOW_OPENGL : 0));
+                             SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_ALLOW_HIGHDPI | ((F.hw_req || want_sw_gl) ? SDL_WINDOW_OPENGL : 0));
     if (!F.win) { plog("SDL window: %s\n", SDL_GetError()); return 4; }
     SDL_ShowCursor(SDL_DISABLE);
-    F.ren = SDL_CreateRenderer(F.win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!F.ren) F.ren = SDL_CreateRenderer(F.win, -1, SDL_RENDERER_SOFTWARE);
-    if (!F.ren) { plog("SDL renderer: %s\n", SDL_GetError()); return 4; }
+    F.sw_gl = want_sw_gl && sw_gl_setup();
+    if (!F.sw_gl) {   // the SDL renderer: desktops, hardware cores (which still use it for nothing but a fallback), or when GL drawing failed
+        F.ren = SDL_CreateRenderer(F.win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        if (!F.ren) {
+            plog("poniaplay: accelerated SDL renderer failed (%s), trying the software one\n", SDL_GetError());
+            F.ren = SDL_CreateRenderer(F.win, -1, SDL_RENDERER_SOFTWARE);
+        }
+        if (!F.ren) { plog("SDL renderer: %s\n", SDL_GetError()); return 4; }
+    }
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     if (F.hw_req && !hw_setup(av)) { plog("poniaplay: hardware render setup failed\n"); return 4; }
 
