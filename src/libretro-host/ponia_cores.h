@@ -157,6 +157,7 @@ inline const PoniaCoreRow* poniacore_cores(int& n) {
         {Target::LinuxArm64, "mupen64plus_next"},
         {Target::LinuxArm64, "yabasanshiro"},
         {Target::LinuxArm64, "ppsspp"},
+        {Target::LinuxX64,   "ppsspp"},   // desktop GL built with GLEW_EGL=1: the buildbot (GLX) core fails glewInit() on KMS/DRM
         {Target::LinuxArm64, "dolphin"},
         {Target::LinuxArm64, "fake08"},
         {Target::LinuxX64,   "fake08"},

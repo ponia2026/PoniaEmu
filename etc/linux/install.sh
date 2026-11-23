@@ -106,9 +106,9 @@ if [ "${NO_DEPS:-0}" != 1 ]; then
             run $SUDO apt-get update || say "note: apt-get update failed, check the network and the apt sources."
         fi
         PKGS=""
-        # libbluetooth3/libudev1/libcurl4/libpugixml1v5: needed by the GameCube core (dolphin) from PoniaCore; alsa-utils: HDMI sound setup (amixer, speaker-test)
+        # libgl1: the N64, PSP and Saturn cores link libGL.so.1; libbluetooth3/libudev1/libcurl4/libpugixml1v5: needed by the GameCube core (dolphin) from PoniaCore; alsa-utils: HDMI sound setup (amixer, speaker-test)
         # libgles2/libegl1/libgbm1: the player draws through SDL on KMS/DRM and needs the GLES library; without it a game runs with sound but no picture
-        for p in libsdl2-2.0-0 libgles2 libegl1 libgbm1 fontconfig \
+        for p in libsdl2-2.0-0 libgles2 libegl1 libgbm1 libgl1 fontconfig \
                  libqt6core6 libqt6gui6 libqt6network6 libqt6qml6 libqt6quick6 libqt6core5compat6 \
                  libqt6sql6 libqt6sql6-sqlite libqt6svg6 qt6-svg-plugins qt6-image-formats-plugins qt6-qpa-plugins qt6-wayland libxcb-cursor0 \
                  qml6-module-qtqml qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \

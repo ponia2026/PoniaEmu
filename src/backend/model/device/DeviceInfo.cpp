@@ -26,11 +26,38 @@
 #endif
 
 #include <QNetworkInformation>
+#ifdef Q_OS_LINUX
+#include <QDir>
+#include <QFile>
+#endif
 
 #include <cmath>
 
 
 namespace {
+#ifdef Q_OS_LINUX
+// Fallback when no Qt network backend plugin is installed: look at the kernel's interface list.
+model::DeviceInfo::NetworkType sysfs_network_type(bool& online)
+{
+    using NT = model::DeviceInfo::NetworkType;
+    online = false;
+    NT best = NT::None;
+    const QDir net("/sys/class/net");
+    for (const QString& name : net.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        if (name == QLatin1String("lo"))
+            continue;
+        QFile state(net.filePath(name + "/operstate"));
+        if (!state.open(QIODevice::ReadOnly) || state.readAll().trimmed() != "up")
+            continue;
+        online = true;
+        const bool wireless = QDir(net.filePath(name + "/wireless")).exists();
+        if (!wireless)
+            return NT::Ethernet;
+        best = NT::WiFi;
+    }
+    return online ? best : NT::None;
+}
+#endif
 #ifdef WITH_SDL_POWER
 model::DeviceInfo::BatteryStatus sdl_state_to_qt(const SDL_PowerState sdl_state)
 {
@@ -109,13 +136,29 @@ DeviceInfo::DeviceInfo(QObject* parent)
             update_network();
         }
     }
+#ifdef Q_OS_LINUX
+    if (!QNetworkInformation::instance()) {
+        update_network();
+        connect(&m_battery_poll, &QTimer::timeout, this, &DeviceInfo::update_network);
+    }
+#endif
 }
 
 void DeviceInfo::update_network()
 {
     const QNetworkInformation* info = QNetworkInformation::instance();
-    if (!info)
+    if (!info) {
+#ifdef Q_OS_LINUX
+        bool on = false;
+        const NetworkType t = sysfs_network_type(on);
+        if (t != m_network_type || on != m_online) {
+            m_network_type = t;
+            m_online = on;
+            emit networkChanged();
+        }
+#endif
         return;
+    }
 
     using Reach = QNetworkInformation::Reachability;
     const Reach reach = info->reachability();
@@ -133,6 +176,12 @@ void DeviceInfo::update_network()
             case QNetworkInformation::TransportMedium::Bluetooth: type = NetworkType::Other; break;
             default: type = NetworkType::Unknown; break;
         }
+#ifdef Q_OS_LINUX
+        if (type == NetworkType::Unknown) {
+            bool on = false;
+            type = sysfs_network_type(on);
+        }
+#endif
     }
 
     if (type == m_network_type && online == m_online)
