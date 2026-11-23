@@ -65,7 +65,34 @@ bool core_installed(const std::string& id)
     return false;
 }
 
+QString official_url(const ponia::CoreInfo& ci);
+
+// For testing on a slow connection: when a core mirror is set, every core is fetched from there by its file name instead
+// (e.g. http://192.168.8.186:8090/mame_libretro.so.zip). The mirror is the environment variable PONIA_CORE_MIRROR, or the first
+// line of core_mirror.txt next to the cores folder (~/.config/poniaemu/core_mirror.txt on Linux). Without either: the normal sources.
+QString core_mirror()
+{
+    QString m = qEnvironmentVariable("PONIA_CORE_MIRROR").trimmed();
+    if (m.isEmpty()) {
+        QFile f(cores_dir() + QStringLiteral("/../core_mirror.txt"));
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text))
+            m = QString::fromUtf8(f.readLine()).trimmed();
+    }
+    while (m.endsWith(QLatin1Char('/')))
+        m.chop(1);
+    return m;
+}
+
 QString download_url(const ponia::CoreInfo& ci)
+{
+    const QString url = official_url(ci);
+    const QString mirror = core_mirror();
+    if (mirror.isEmpty())
+        return url;
+    return mirror + QLatin1Char('/') + QUrl(url).fileName();
+}
+
+QString official_url(const ponia::CoreInfo& ci)
 {
     QString name = QString::fromLatin1(ci.dl_id ? ci.dl_id : ci.id);
 #ifndef Q_OS_ANDROID
