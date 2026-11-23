@@ -107,6 +107,7 @@ public:
             return;
 
         datelog(m_marker_info, msg);
+        m_stream.flush();   // written at once: a log that only appears when the program ends cannot explain a hang or a dead input
     }
     void warning(const QString& msg) override {
         if (Q_UNLIKELY(!m_file.isOpen()))

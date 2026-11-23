@@ -94,6 +94,7 @@ private:
 
 private:
     const QString m_log_tag;
+    int m_diag_events = 0;   // button events logged since the last connection (diagnostics)
 
     GamepadListModel* const m_devices;
     GamepadManagerBackend* const m_backend;

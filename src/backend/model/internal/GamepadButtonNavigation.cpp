@@ -51,6 +51,14 @@ void emit_key(Qt::Key key, QEvent::Type event_type, bool autorep)
     if (target) {
         QKeyEvent event(event_type, key, Qt::NoModifier, QString(), autorep);
         QGuiApplication::sendEvent(target, &event);
+        static int diag = 0;   // diagnostics: the first few deliveries and whether anything accepted them
+        if (diag < 8 && event_type == QEvent::KeyPress) {
+            diag++;
+            Log::info(QStringLiteral("Gamepad"), LOGMSG("Key %1 sent to a window (focus=%2), accepted=%3")
+                .arg(QString::number(static_cast<int>(key)),
+                     qApp->focusWindow() ? QStringLiteral("yes") : QStringLiteral("no"),
+                     event.isAccepted() ? QStringLiteral("yes") : QStringLiteral("no")));
+        }
     }
 }
 } // namespace

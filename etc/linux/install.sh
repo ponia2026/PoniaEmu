@@ -153,6 +153,10 @@ curl -fsSL --retry 3 -o "$TMP/SHA256SUMS.txt" "$BASE/SHA256SUMS.txt"
 
 tar -tzf "$TMP/$FILE" > "$TMP/manifest.txt"
 $SUDO mkdir -p "$PREFIX"
+# The bundled cores belong to the package: drop the ones an older version left behind before unpacking. A stale core (for example a
+# desktop-GL Nintendo 64 core) would otherwise shadow the right one and, being found, would never be downloaded again. The cores
+# downloaded on first run live in ~/.config/poniaemu/cores and are not touched.
+$SUDO rm -f "$PREFIX"/lib/poniaemu/cores/*_libretro.so 2>/dev/null || true
 $SUDO tar -xzf "$TMP/$FILE" -C "$PREFIX"
 $SUDO mkdir -p "$(dirname "$MANIFEST")"
 $SUDO cp "$TMP/manifest.txt" "$MANIFEST"

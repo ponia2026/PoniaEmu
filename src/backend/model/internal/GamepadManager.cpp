@@ -125,6 +125,7 @@ void GamepadManager::bkOnConnected(int device_id, QString name)
         name = QLatin1String("generic");
 
     m_devices->append(new Gamepad(device_id, name, m_devices));
+    m_diag_events = 0;
 
     Log::info(m_log_tag, LOGMSG("Connected device %1 (%2)").arg(pretty_id(device_id), name));
     emit connected(device_id);
@@ -167,6 +168,13 @@ void GamepadManager::bkOnAxisCfg(int device_id, GamepadAxis axis)
 
 void GamepadManager::bkOnButtonChanged(int device_id, GamepadButton button, bool pressed)
 {
+    // Diagnostics: the first few button events after each (re)connection, to tell "no events arrive" from "events arrive but nothing reacts".
+    if (m_diag_events < 8) {
+        m_diag_events++;
+        Log::info(m_log_tag, LOGMSG("Button event %1 from device %2: %3 %4")
+            .arg(QString::number(m_diag_events), pretty_id(device_id), QString::number(static_cast<int>(button)),
+                 pressed ? QStringLiteral("down") : QStringLiteral("up")));
+    }
     model::Gamepad* const gamepad = m_devices->findById(device_id);
     if (gamepad)
         gamepad->setButtonState(button, pressed);
