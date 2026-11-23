@@ -224,7 +224,8 @@ Item {
                 if (!g) return "";
                 var t = g.description || g.summary;
                 // A name that does not fit the title line is cut with "..."; the full name goes first in the scrolling text instead of shrinking the font.
-                var full = ttl.cut ? g.title + "\n\n" : "";                if (t) return full + t;
+                var full = ttl.cut ? g.title + "\n" : "";   // one line break only: the gap to the description equals the line spacing
+                if (t) return full + t;
                 var parts = [];
                 if (g.developer) parts.push(g.developer);
                 if (g.publisher && g.publisher !== g.developer) parts.push(g.publisher);
