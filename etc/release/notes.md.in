@@ -1,0 +1,78 @@
+## PoniaEmu @VERSION@
+
+A game launcher with a built-in Libretro player (PoniaPlay). Play 20+ retro systems without RetroArch.
+Based on Pegasus Frontend, ported to Qt 6. See the [README](https://github.com/ponia2026/PoniaEmu#readme)
+for the supported systems, setup and build instructions.
+
+### Downloads
+
+| File | For |
+| --- | --- |
+| `PoniaEmu_@TAG@-@STAMP@_v8a.apk` | Android, 64-bit (arm64-v8a), Android 6.0 or newer |
+| `PoniaEmu_@TAG@-@STAMP@_v7a.apk` | Android, 32-bit (armeabi-v7a), Android 6.0 or newer |
+| `PoniaEmu_@TAG@-@STAMP@_linux-x86_64.tar.gz` | Linux, 64-bit PC |
+| `PoniaEmu_@TAG@-@STAMP@_linux-arm64.tar.gz` | Linux, ARM 64-bit |
+| `PoniaEmu_@TAG@-@STAMP@_linux-armhf.tar.gz` | Linux, ARM 32-bit |
+| `SHA256SUMS.txt` | Checksums of all files above |
+
+### Install on Android (with adb)
+
+Not sure which APK you need? Ask the device:
+
+```sh
+adb shell getprop ro.product.cpu.abilist
+```
+
+If the list contains `arm64-v8a`, use the `_v8a` file. If it only has `armeabi-v7a`, use the `_v7a` file.
+Over the network, connect first with `adb connect <device-ip>:5555`.
+
+64-bit:
+
+```sh
+curl -fLO https://github.com/ponia2026/PoniaEmu/releases/download/@TAG@/PoniaEmu_@TAG@-@STAMP@_v8a.apk
+adb install -r PoniaEmu_@TAG@-@STAMP@_v8a.apk
+```
+
+32-bit:
+
+```sh
+curl -fLO https://github.com/ponia2026/PoniaEmu/releases/download/@TAG@/PoniaEmu_@TAG@-@STAMP@_v7a.apk
+adb install -r PoniaEmu_@TAG@-@STAMP@_v7a.apk
+```
+
+On Windows PowerShell, write `curl.exe` instead of `curl`.
+If `adb install` complains that the signature does not match, an earlier test build signed with a different key is
+installed. Remove it first with `adb uninstall org.ponia.PoniaEmu` (this also deletes its settings), then install again.
+
+### Install on Linux (one command)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ponia2026/PoniaEmu/qt6/etc/linux/install.sh | sh
+```
+
+The script picks the right package for your system (x86_64, arm64 or armhf), checks its SHA-256, installs the Qt 6
+runtime packages with apt and unpacks PoniaEmu into `/usr/local`. Start it with `poniaemu`.
+
+On a box **without a desktop** (a TV box or a small board) the script also:
+
+- installs a sound server (PulseAudio, as a system-wide service) so the menus have sound;
+- mounts every disk that is not the system disk under `/media/<label>` when it is plugged in and at boot
+  (`AUTOMOUNT=0` skips this; on a desktop it is skipped by itself because the desktop mounts disks);
+- sets the HDMI output level to 80% on Amlogic boards (`HDMI_VOLUME=N` changes it, `0` leaves it alone).
+
+On a console without a desktop, `poniaemu` picks the connected screen output (HDMI first) by itself.
+
+- Read the script first if you like: [install.sh](https://github.com/ponia2026/PoniaEmu/blob/qt6/etc/linux/install.sh).
+- Install this exact version: `curl -fsSL https://raw.githubusercontent.com/ponia2026/PoniaEmu/qt6/etc/linux/install.sh | VERSION=@TAG@ sh`
+- Remove it again: `curl -fsSL https://raw.githubusercontent.com/ponia2026/PoniaEmu/qt6/etc/linux/install.sh | sh -s -- --uninstall`
+- Prefer to do it by hand? Download the matching `.tar.gz`, then `sudo tar -xzf <file> -C /usr/local`.
+
+Requirements: an apt-based system (Debian, Ubuntu, Armbian and similar) with Qt 6.4 or newer and glibc 2.34 or newer,
+for example Debian 12 or Ubuntu 24.04 and later.
+
+On a box without a desktop the installer also helps with the **HDMI sound**: it plays short beeps (candidate N beeps N times), you tell it
+which one you heard, and it makes that route the default. Run it again any time with `audiosetup`.
+
+### Supported systems
+
+Which systems each platform offers, and with which core, is listed in the [README](https://github.com/ponia2026/PoniaEmu#supported-systems).

@@ -21,29 +21,31 @@ PoniaEmu は [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend) を
 
 ## 対応機種
 
-| 機種 | コア |
-| --- | --- |
-| ファミリーコンピュータ / NES | FCEUmm |
-| ゲームボーイ / ゲームボーイカラー | Gambatte |
-| ゲームボーイアドバンス | mGBA |
-| ニンテンドーDS | melonDS |
-| スーパーファミコン / SNES | Snes9x |
-| NINTENDO64 | Mupen64Plus-Next |
-| ニンテンドーゲームキューブ (64 ビットのみ) | Dolphin |
-| メガドライブ / Genesis、マスターシステム | Genesis Plus GX |
-| セガサターン | YabaSanshiro |
-| ドリームキャスト | Flycast |
-| PCエンジン / TurboGrafx-16 | Mednafen PCE Fast |
-| プレイステーション | PCSX ReARMed |
-| PSP | PPSSPP |
-| ネオジオ、CPS-1、CPS-2 などの FBNeo アーケード | FBNeo |
-| アーケード (MAME) | MAME, MAME 2003-Plus |
-| Atari 2600 | Stella |
-| Atari 5200 | a5200 |
-| Atari 7800 | ProSystem |
-| PICO-8 | fake-08, retro8 |
-| Apple II | AppleWin |
-| DOS | DOSBox Pure |
+| 機種 | コア | Android 64 ビット | Android 32 ビット | Linux ARM 64 ビット | Linux ARM 32 ビット | Linux x86_64 |
+| --- | --- | :---: | :---: | :---: | :---: | :---: |
+| ファミリーコンピュータ / NES | FCEUmm | ✔ | ✔ | ✔ | ✔ | ✔ |
+| ゲームボーイ / ゲームボーイカラー | Gambatte | ✔ | ✔ | ✔ | ✔ | ✔ |
+| ゲームボーイアドバンス | mGBA | ✔ | ✔ | ✔ | ✔ | ✔ |
+| ニンテンドーDS | melonDS | ✔ | ✔ | ✔ | DeSmuME 2015 | ✔ |
+| スーパーファミコン / SNES | Snes9x | ✔ | ✔ | ✔ | ✔ | ✔ |
+| NINTENDO64 | Mupen64Plus-Next | ✔ | ✔ | ✔ | — | ✔ |
+| ニンテンドーゲームキューブ | Dolphin | ✔ | — | ✔ | — | ✔ |
+| メガドライブ / Genesis、マスターシステム | Genesis Plus GX | ✔ | ✔ | ✔ | ✔ | ✔ |
+| セガサターン | YabaSanshiro | ✔ | ✔ | ✔ | — | ✔ |
+| ドリームキャスト | Flycast | ✔ | ✔ | ✔ | — | ✔ |
+| PCエンジン / TurboGrafx-16 | Mednafen PCE Fast | ✔ | ✔ | ✔ | ✔ | ✔ |
+| プレイステーション | PCSX ReARMed | ✔ | ✔ | ✔ | ✔ | ✔ |
+| PSP | PPSSPP | ✔ | ✔ | ✔ | — | ✔ |
+| ネオジオ、CPS-1、CPS-2 などの FBNeo アーケード | FBNeo | ✔ | ✔ | ✔ | ✔ | ✔ |
+| アーケード (MAME) | MAME | ✔ | ✔ | ✔ | MAME 2003-Plus | ✔ |
+| Atari 2600 | Stella | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 5200 | a5200 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 7800 | ProSystem | ✔ | ✔ | ✔ | ✔ | ✔ |
+| PICO-8 | fake-08, retro8 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Apple II | AppleWin | ✔ | ✔ | ✔ | ✔ | ✔ |
+| DOS | DOSBox Pure | ✔ | ✔ | ✔ | ✔ | ✔ |
+
+✔ = 2 列目のコアで提供。コア名が書いてある場合 = そのコアに置き換えて提供。— = そのプラットフォームでは非表示。
 
 注意:
 
@@ -52,6 +54,11 @@ PoniaEmu は [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend) を
 - 非商用ライセンスのコア (Snes9x、Genesis Plus GX、FBNeo、MAME 2003-Plus) は、パッケージには同梱しません。
   初めて使うときに、PoniaEmu がダウンロードを案内します。
 - ホットキー、ボタン配置、ポーズメニューは PoniaPlay が処理するため、どの機種でも同じ動作になります。
+- **Linux 32 ビット ARM** では、RK3288 クラスのボードで快適に動く機種だけを提供します。Nintendo 64、Dreamcast、PSP、Saturn、GameCube は非表示で、フル版の MAME も同様です (32 ビットのアドレス空間に収まらないため)。
+- **Android 32 ビット：** Dolphin には 32 ビット ARM 向けの JIT がないため、GameCube は非表示です。
+- **どのプラットフォームでも非対応：** Ports (独自のコマンドで起動する PC/Linux ゲーム)、PS2、PS3、PS Vita、Wii、Wii U、3DS、Switch、Xbox、Xbox 360。
+- Linux では、Nintendo 64、Saturn、PSP、GameCube、PICO-8 (と 32 ビット ARM の一部の機種) に [PoniaCore](https://github.com/ponia2026/PoniaCore) プロジェクトがビルドしたコアを使います。Mali GPU でも動く OpenGL ES ビルドです (x86_64 の PSP コアはデスクトップ OpenGL ビルドで、EGL 経由で GPU を使うため、デスクトップ環境なしでも動きます)。実機テストは今のところ 64 ビット ARM ボード 1 枚と x86_64 PC 1 台です。
+- コアは、その機種のゲームを初めて起動したときにダウンロードされます。
 
 ## 対応プラットフォーム
 
@@ -59,8 +66,6 @@ PoniaEmu は [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend) を
 | --- | --- | --- |
 | Android | ARM 64 ビット (`arm64-v8a`)、ARM 32 ビット (`armeabi-v7a`) | Android 6.0 (API 23) 以降。タッチ画面、ゲームパッド、テレビのリモコンで操作できます。 |
 | Linux | x86_64 (64 ビット PC)、ARM 64 ビット (`arm64`)、ARM 32 ビット (`armhf`) | X11、Wayland、またはフレームバッファ (KMS/DRM) 上で直接動作します。`poniaplay` 実行ファイルはフロントエンドと同じ場所にインストールされます。 |
-
-Dolphin には ARM32 向けの JIT がないため、32 ビット ARM では GameCube のコアは使えません。
 
 ## 操作
 

@@ -21,29 +21,31 @@ Libretro 核心（`.so` 文件）。两者合在一起就是一个独立的应�
 
 ## 支持的机种
 
-| 机种 | 核心 |
-| --- | --- |
-| 任天堂 FC / Famicom | FCEUmm |
-| Game Boy / Game Boy Color | Gambatte |
-| Game Boy Advance | mGBA |
-| 任天堂 DS | melonDS |
-| 超级任天堂 / Super Famicom | Snes9x |
-| 任天堂 64 | Mupen64Plus-Next |
-| 任天堂 GameCube（仅 64 位） | Dolphin |
-| Sega Genesis / Mega Drive、Master System | Genesis Plus GX |
-| Sega Saturn | YabaSanshiro |
-| Sega Dreamcast | Flycast |
-| NEC PC Engine / TurboGrafx-16 | Mednafen PCE Fast |
-| Sony PlayStation | PCSX ReARMed |
-| Sony PSP | PPSSPP |
-| Neo Geo、CPS-1、CPS-2 等 FBNeo 街机 | FBNeo |
-| 街机（MAME） | MAME, MAME 2003-Plus |
-| Atari 2600 | Stella |
-| Atari 5200 | a5200 |
-| Atari 7800 | ProSystem |
-| PICO-8 | fake-08, retro8 |
-| Apple II | AppleWin |
-| DOS | DOSBox Pure |
+| 机种 | 核心 | Android 64 位 | Android 32 位 | Linux ARM 64 位 | Linux ARM 32 位 | Linux x86_64 |
+| --- | --- | :---: | :---: | :---: | :---: | :---: |
+| 任天堂 FC / Famicom | FCEUmm | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Game Boy / Game Boy Color | Gambatte | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Game Boy Advance | mGBA | ✔ | ✔ | ✔ | ✔ | ✔ |
+| 任天堂 DS | melonDS | ✔ | ✔ | ✔ | DeSmuME 2015 | ✔ |
+| 超级任天堂 / Super Famicom | Snes9x | ✔ | ✔ | ✔ | ✔ | ✔ |
+| 任天堂 64 | Mupen64Plus-Next | ✔ | ✔ | ✔ | — | ✔ |
+| 任天堂 GameCube | Dolphin | ✔ | — | ✔ | — | ✔ |
+| Sega Genesis / Mega Drive、Master System | Genesis Plus GX | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sega Saturn | YabaSanshiro | ✔ | ✔ | ✔ | — | ✔ |
+| Sega Dreamcast | Flycast | ✔ | ✔ | ✔ | — | ✔ |
+| NEC PC Engine / TurboGrafx-16 | Mednafen PCE Fast | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sony PlayStation | PCSX ReARMed | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sony PSP | PPSSPP | ✔ | ✔ | ✔ | — | ✔ |
+| Neo Geo、CPS-1、CPS-2 等 FBNeo 街机 | FBNeo | ✔ | ✔ | ✔ | ✔ | ✔ |
+| 街机（MAME） | MAME | ✔ | ✔ | ✔ | MAME 2003-Plus | ✔ |
+| Atari 2600 | Stella | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 5200 | a5200 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 7800 | ProSystem | ✔ | ✔ | ✔ | ✔ | ✔ |
+| PICO-8 | fake-08, retro8 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Apple II | AppleWin | ✔ | ✔ | ✔ | ✔ | ✔ |
+| DOS | DOSBox Pure | ✔ | ✔ | ✔ | ✔ | ✔ |
+
+✔ = 提供，使用第二列的核心。写出核心名称 = 改用该核心。— = 该平台隐藏。
 
 注意事项：
 
@@ -52,6 +54,11 @@ Libretro 核心（`.so` 文件）。两者合在一起就是一个独立的应�
 - 授权为非商用的核心（Snes9x、Genesis Plus GX、FBNeo、MAME 2003-Plus）不会放进安装包，
   第一次使用时 PoniaEmu 会询问是否下载。
 - 热键、按键配置和暂停菜单由 PoniaPlay 统一处理，所以每个机种的操作方式都一样。
+- **Linux 32 位 ARM** 只提供在 RK3288 级别开发板上能流畅运行的机种。Nintendo 64、Dreamcast、PSP、Saturn 和 GameCube 都会隐藏，完整版 MAME 也一样（它装不进 32 位地址空间）。
+- **Android 32 位：** 隐藏 GameCube，因为 Dolphin 没有 32 位 ARM 的 JIT。
+- **所有平台都不支持：** Ports（用各自命令启动的 PC/Linux 游戏）、PS2、PS3、PS Vita、Wii、Wii U、3DS、Switch、Xbox 和 Xbox 360。
+- 在 Linux 上，Nintendo 64、Saturn、PSP、GameCube 和 PICO-8（以及 32 位 ARM 上的少数机种）使用 [PoniaCore](https://github.com/ponia2026/PoniaCore) 项目编译的核心：OpenGL ES 版本，在 Mali GPU 上也能用（x86_64 的 PSP 核心是桌面 OpenGL 版本，通过 EGL 访问 GPU，所以没有桌面环境也能运行）。目前的实机测试涵盖一块 64 位 ARM 开发板和一台 x86_64 电脑。
+- 核心会在第一次启动该机种的游戏时下载。
 
 ## 支持的平台
 
@@ -59,8 +66,6 @@ Libretro 核心（`.so` 文件）。两者合在一起就是一个独立的应�
 | --- | --- | --- |
 | Android | ARM 64 位（`arm64-v8a`）、ARM 32 位（`armeabi-v7a`） | Android 6.0（API 23）以上。可用触控屏、手柄或电视遥控器操作。 |
 | Linux | x86_64（64 位电脑）、ARM 64 位（`arm64`）、ARM 32 位（`armhf`） | 可在 X11、Wayland 下运行，也能直接跑在 framebuffer（KMS/DRM）上。`poniaplay` 可执行文件会安装在前端旁边。 |
-
-GameCube 核心不支持 32 位 ARM，因为 Dolphin 没有 ARM32 的 JIT。
 
 ## 手柄操作
 

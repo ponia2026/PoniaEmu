@@ -21,29 +21,31 @@ The interface is available in nine languages: English, 简体中文, 繁體中�
 
 ## Supported systems
 
-| System | Core |
-| --- | --- |
-| Nintendo Entertainment System / Famicom | FCEUmm |
-| Game Boy / Game Boy Color | Gambatte |
-| Game Boy Advance | mGBA |
-| Nintendo DS | melonDS |
-| Super Nintendo / Super Famicom | Snes9x |
-| Nintendo 64 | Mupen64Plus-Next |
-| Nintendo GameCube (64-bit only) | Dolphin |
-| Sega Genesis / Mega Drive, Master System | Genesis Plus GX |
-| Sega Saturn | YabaSanshiro |
-| Sega Dreamcast | Flycast |
-| NEC PC Engine / TurboGrafx-16 | Mednafen PCE Fast |
-| Sony PlayStation | PCSX ReARMed |
-| Sony PSP | PPSSPP |
-| Neo Geo, CPS-1, CPS-2 and other FBNeo arcade sets | FBNeo |
-| Arcade (MAME) | MAME, MAME 2003-Plus |
-| Atari 2600 | Stella |
-| Atari 5200 | a5200 |
-| Atari 7800 | ProSystem |
-| PICO-8 | fake-08, retro8 |
-| Apple II | AppleWin |
-| DOS | DOSBox Pure |
+| System | Core | Android 64-bit | Android 32-bit | Linux ARM 64-bit | Linux ARM 32-bit | Linux x86_64 |
+| --- | --- | :---: | :---: | :---: | :---: | :---: |
+| Nintendo Entertainment System / Famicom | FCEUmm | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Game Boy / Game Boy Color | Gambatte | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Game Boy Advance | mGBA | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Nintendo DS | melonDS | ✔ | ✔ | ✔ | DeSmuME 2015 | ✔ |
+| Super Nintendo / Super Famicom | Snes9x | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Nintendo 64 | Mupen64Plus-Next | ✔ | ✔ | ✔ | — | ✔ |
+| Nintendo GameCube | Dolphin | ✔ | — | ✔ | — | ✔ |
+| Sega Genesis / Mega Drive, Master System | Genesis Plus GX | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sega Saturn | YabaSanshiro | ✔ | ✔ | ✔ | — | ✔ |
+| Sega Dreamcast | Flycast | ✔ | ✔ | ✔ | — | ✔ |
+| NEC PC Engine / TurboGrafx-16 | Mednafen PCE Fast | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sony PlayStation | PCSX ReARMed | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sony PSP | PPSSPP | ✔ | ✔ | ✔ | — | ✔ |
+| Neo Geo, CPS-1, CPS-2 and other FBNeo arcade sets | FBNeo | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Arcade (MAME) | MAME | ✔ | ✔ | ✔ | MAME 2003-Plus | ✔ |
+| Atari 2600 | Stella | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 5200 | a5200 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 7800 | ProSystem | ✔ | ✔ | ✔ | ✔ | ✔ |
+| PICO-8 | fake-08, retro8 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Apple II | AppleWin | ✔ | ✔ | ✔ | ✔ | ✔ |
+| DOS | DOSBox Pure | ✔ | ✔ | ✔ | ✔ | ✔ |
+
+✔ = offered with the core in the second column. A named core = offered with that core instead. — = hidden on that platform.
 
 Notes:
 
@@ -52,6 +54,11 @@ Notes:
 - Cores with non-commercial licenses (Snes9x, Genesis Plus GX, FBNeo, MAME 2003-Plus) are never bundled in the package.
   PoniaEmu offers to download them on first use.
 - Hotkeys, button layout and the pause menu behave the same on every system, because they are handled by PoniaPlay.
+- **Linux 32-bit ARM** offers only the systems that play smoothly on a board of the RK3288 class. Nintendo 64, Dreamcast, PSP, Saturn and GameCube are hidden, and so is full MAME (it does not fit the 32-bit address space).
+- **Android 32-bit:** GameCube is hidden, because Dolphin has no 32-bit ARM JIT.
+- **Not supported on any platform:** Ports (PC/Linux games started by their own command), PS2, PS3, PS Vita, Wii, Wii U, 3DS, Switch, Xbox and Xbox 360.
+- On Linux, Nintendo 64, Saturn, PSP, GameCube and PICO-8 (and a few systems on 32-bit ARM) use cores built by the [PoniaCore](https://github.com/ponia2026/PoniaCore) project: OpenGL ES builds that also work on Mali GPUs (the x86_64 PSP core is a desktop OpenGL build that talks to the GPU through EGL, so it runs without a desktop). Their real-device testing so far covers one 64-bit ARM board and one x86_64 PC.
+- Cores are downloaded the first time a game of that system is started.
 
 ## Supported platforms
 
@@ -59,8 +66,6 @@ Notes:
 | --- | --- | --- |
 | Android | ARM 64-bit (`arm64-v8a`), ARM 32-bit (`armeabi-v7a`) | Android 6.0 (API 23) or newer. Works with a touch screen, a gamepad or a TV remote. |
 | Linux | x86_64 (64-bit PC), ARM 64-bit (`arm64`), ARM 32-bit (`armhf`) | Runs on X11, Wayland or directly on the framebuffer (KMS/DRM). The `poniaplay` executable is installed next to the frontend. |
-
-The GameCube core is not available on 32-bit ARM, because Dolphin has no ARM32 JIT.
 
 ## Controls
 

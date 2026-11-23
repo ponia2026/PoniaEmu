@@ -21,29 +21,31 @@ PoniaEmu — это изменённая версия [Pegasus Frontend](https:/
 
 ## Поддерживаемые системы
 
-| Система | Ядро |
-| --- | --- |
-| Nintendo Entertainment System / Famicom | FCEUmm |
-| Game Boy / Game Boy Color | Gambatte |
-| Game Boy Advance | mGBA |
-| Nintendo DS | melonDS |
-| Super Nintendo / Super Famicom | Snes9x |
-| Nintendo 64 | Mupen64Plus-Next |
-| Nintendo GameCube (только 64 бит) | Dolphin |
-| Sega Genesis / Mega Drive, Master System | Genesis Plus GX |
-| Sega Saturn | YabaSanshiro |
-| Sega Dreamcast | Flycast |
-| NEC PC Engine / TurboGrafx-16 | Mednafen PCE Fast |
-| Sony PlayStation | PCSX ReARMed |
-| Sony PSP | PPSSPP |
-| Neo Geo, CPS-1, CPS-2 и другие аркадные наборы FBNeo | FBNeo |
-| Аркады (MAME) | MAME, MAME 2003-Plus |
-| Atari 2600 | Stella |
-| Atari 5200 | a5200 |
-| Atari 7800 | ProSystem |
-| PICO-8 | fake-08, retro8 |
-| Apple II | AppleWin |
-| DOS | DOSBox Pure |
+| Система | Ядро | Android 64 бит | Android 32 бит | Linux ARM 64 бит | Linux ARM 32 бит | Linux x86_64 |
+| --- | --- | :---: | :---: | :---: | :---: | :---: |
+| Nintendo Entertainment System / Famicom | FCEUmm | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Game Boy / Game Boy Color | Gambatte | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Game Boy Advance | mGBA | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Nintendo DS | melonDS | ✔ | ✔ | ✔ | DeSmuME 2015 | ✔ |
+| Super Nintendo / Super Famicom | Snes9x | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Nintendo 64 | Mupen64Plus-Next | ✔ | ✔ | ✔ | — | ✔ |
+| Nintendo GameCube | Dolphin | ✔ | — | ✔ | — | ✔ |
+| Sega Genesis / Mega Drive, Master System | Genesis Plus GX | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sega Saturn | YabaSanshiro | ✔ | ✔ | ✔ | — | ✔ |
+| Sega Dreamcast | Flycast | ✔ | ✔ | ✔ | — | ✔ |
+| NEC PC Engine / TurboGrafx-16 | Mednafen PCE Fast | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sony PlayStation | PCSX ReARMed | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sony PSP | PPSSPP | ✔ | ✔ | ✔ | — | ✔ |
+| Neo Geo, CPS-1, CPS-2 и другие аркадные наборы FBNeo | FBNeo | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Аркады (MAME) | MAME | ✔ | ✔ | ✔ | MAME 2003-Plus | ✔ |
+| Atari 2600 | Stella | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 5200 | a5200 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 7800 | ProSystem | ✔ | ✔ | ✔ | ✔ | ✔ |
+| PICO-8 | fake-08, retro8 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Apple II | AppleWin | ✔ | ✔ | ✔ | ✔ | ✔ |
+| DOS | DOSBox Pure | ✔ | ✔ | ✔ | ✔ | ✔ |
+
+✔ = предлагается с ядром из второго столбца. Название ядра = вместо него используется это ядро. — = на этой платформе скрыто.
 
 Примечания:
 
@@ -52,6 +54,11 @@ PoniaEmu — это изменённая версия [Pegasus Frontend](https:/
 - Ядра с некоммерческой лицензией (Snes9x, Genesis Plus GX, FBNeo, MAME 2003-Plus) никогда не входят в пакет.
   PoniaEmu предложит скачать их при первом использовании.
 - Горячие клавиши, раскладка кнопок и меню паузы работают одинаково во всех системах, потому что ими управляет PoniaPlay.
+- **Linux 32-битный ARM** предлагает только те системы, которые плавно работают на плате класса RK3288. Nintendo 64, Dreamcast, PSP, Saturn и GameCube скрыты, как и полная MAME (она не помещается в 32-битное адресное пространство).
+- **Android 32 бит:** GameCube скрыт, потому что у Dolphin нет JIT для 32-битного ARM.
+- **Не поддерживается ни на одной платформе:** Ports (игры для ПК/Linux, запускаемые собственной командой), PS2, PS3, PS Vita, Wii, Wii U, 3DS, Switch, Xbox и Xbox 360.
+- В Linux Nintendo 64, Saturn, PSP, GameCube и PICO-8 (и несколько систем на 32-битном ARM) используют ядра, собранные проектом [PoniaCore](https://github.com/ponia2026/PoniaCore): сборки OpenGL ES, которые работают и на GPU Mali (ядро PSP для x86_64 — это сборка с настольным OpenGL, которая обращается к GPU через EGL, поэтому работает без рабочего стола). Пока проверено на одной 64-битной ARM-плате и одном ПК x86_64.
+- Ядра загружаются при первом запуске игры этой системы.
 
 ## Поддерживаемые платформы
 
@@ -59,8 +66,6 @@ PoniaEmu — это изменённая версия [Pegasus Frontend](https:/
 | --- | --- | --- |
 | Android | ARM 64 бит (`arm64-v8a`), ARM 32 бит (`armeabi-v7a`) | Android 6.0 (API 23) или новее. Работает с сенсорным экраном, геймпадом и пультом от ТВ. |
 | Linux | x86_64 (64-битный ПК), ARM 64 бит (`arm64`), ARM 32 бит (`armhf`) | Работает в X11, Wayland или прямо на фреймбуфере (KMS/DRM). Исполняемый файл `poniaplay` устанавливается рядом с фронтендом. |
-
-Ядро GameCube недоступно на 32-битном ARM, потому что у Dolphin нет JIT для ARM32.
 
 ## Управление
 

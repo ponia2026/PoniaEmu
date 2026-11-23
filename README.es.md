@@ -21,29 +21,31 @@ La interfaz está disponible en nueve idiomas: English, 简体中文, 繁體中�
 
 ## Sistemas compatibles
 
-| Sistema | Núcleo |
-| --- | --- |
-| Nintendo Entertainment System / Famicom | FCEUmm |
-| Game Boy / Game Boy Color | Gambatte |
-| Game Boy Advance | mGBA |
-| Nintendo DS | melonDS |
-| Super Nintendo / Super Famicom | Snes9x |
-| Nintendo 64 | Mupen64Plus-Next |
-| Nintendo GameCube (solo 64 bits) | Dolphin |
-| Sega Genesis / Mega Drive, Master System | Genesis Plus GX |
-| Sega Saturn | YabaSanshiro |
-| Sega Dreamcast | Flycast |
-| NEC PC Engine / TurboGrafx-16 | Mednafen PCE Fast |
-| Sony PlayStation | PCSX ReARMed |
-| Sony PSP | PPSSPP |
-| Neo Geo, CPS-1, CPS-2 y otros sets arcade de FBNeo | FBNeo |
-| Arcade (MAME) | MAME, MAME 2003-Plus |
-| Atari 2600 | Stella |
-| Atari 5200 | a5200 |
-| Atari 7800 | ProSystem |
-| PICO-8 | fake-08, retro8 |
-| Apple II | AppleWin |
-| DOS | DOSBox Pure |
+| Sistema | Núcleo | Android 64 bits | Android 32 bits | Linux ARM 64 bits | Linux ARM 32 bits | Linux x86_64 |
+| --- | --- | :---: | :---: | :---: | :---: | :---: |
+| Nintendo Entertainment System / Famicom | FCEUmm | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Game Boy / Game Boy Color | Gambatte | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Game Boy Advance | mGBA | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Nintendo DS | melonDS | ✔ | ✔ | ✔ | DeSmuME 2015 | ✔ |
+| Super Nintendo / Super Famicom | Snes9x | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Nintendo 64 | Mupen64Plus-Next | ✔ | ✔ | ✔ | — | ✔ |
+| Nintendo GameCube | Dolphin | ✔ | — | ✔ | — | ✔ |
+| Sega Genesis / Mega Drive, Master System | Genesis Plus GX | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sega Saturn | YabaSanshiro | ✔ | ✔ | ✔ | — | ✔ |
+| Sega Dreamcast | Flycast | ✔ | ✔ | ✔ | — | ✔ |
+| NEC PC Engine / TurboGrafx-16 | Mednafen PCE Fast | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sony PlayStation | PCSX ReARMed | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Sony PSP | PPSSPP | ✔ | ✔ | ✔ | — | ✔ |
+| Neo Geo, CPS-1, CPS-2 y otros sets arcade de FBNeo | FBNeo | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Arcade (MAME) | MAME | ✔ | ✔ | ✔ | MAME 2003-Plus | ✔ |
+| Atari 2600 | Stella | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 5200 | a5200 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Atari 7800 | ProSystem | ✔ | ✔ | ✔ | ✔ | ✔ |
+| PICO-8 | fake-08, retro8 | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Apple II | AppleWin | ✔ | ✔ | ✔ | ✔ | ✔ |
+| DOS | DOSBox Pure | ✔ | ✔ | ✔ | ✔ | ✔ |
+
+✔ = se ofrece con el núcleo de la segunda columna. Un nombre de núcleo = se ofrece con ese núcleo en su lugar. — = oculto en esa plataforma.
 
 Notas:
 
@@ -52,6 +54,11 @@ Notas:
 - Los núcleos con licencia no comercial (Snes9x, Genesis Plus GX, FBNeo, MAME 2003-Plus) nunca se incluyen en el paquete.
   PoniaEmu te ofrece descargarlos la primera vez que se usan.
 - Los atajos, la distribución de botones y el menú de pausa se comportan igual en todos los sistemas, porque los gestiona PoniaPlay.
+- **Linux ARM de 32 bits** solo ofrece los sistemas que funcionan con fluidez en una placa de la clase RK3288. Nintendo 64, Dreamcast, PSP, Saturn y GameCube están ocultos, y también el MAME completo (no cabe en el espacio de direcciones de 32 bits).
+- **Android de 32 bits:** GameCube está oculto, porque Dolphin no tiene JIT para ARM de 32 bits.
+- **No compatibles en ninguna plataforma:** Ports (juegos de PC/Linux que se inician con su propio comando), PS2, PS3, PS Vita, Wii, Wii U, 3DS, Switch, Xbox y Xbox 360.
+- En Linux, Nintendo 64, Saturn, PSP, GameCube y PICO-8 (y algunos sistemas en ARM de 32 bits) usan núcleos compilados por el proyecto [PoniaCore](https://github.com/ponia2026/PoniaCore): compilaciones OpenGL ES que también funcionan en GPU Mali (el núcleo de PSP para x86_64 es una compilación de OpenGL de escritorio que habla con la GPU a través de EGL, así que funciona sin escritorio). Hasta ahora se han probado en una placa ARM de 64 bits y un PC x86_64.
+- Los núcleos se descargan la primera vez que se inicia un juego de ese sistema.
 
 ## Plataformas compatibles
 
@@ -59,8 +66,6 @@ Notas:
 | --- | --- | --- |
 | Android | ARM de 64 bits (`arm64-v8a`), ARM de 32 bits (`armeabi-v7a`) | Android 6.0 (API 23) o posterior. Funciona con pantalla táctil, mando o mando a distancia de TV. |
 | Linux | x86_64 (PC de 64 bits), ARM de 64 bits (`arm64`), ARM de 32 bits (`armhf`) | Funciona en X11, Wayland o directamente sobre el framebuffer (KMS/DRM). El ejecutable `poniaplay` se instala junto al frontend. |
-
-El núcleo de GameCube no está disponible en ARM de 32 bits, porque Dolphin no tiene JIT para ARM32.
 
 ## Controles
 
