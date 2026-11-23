@@ -35,7 +35,42 @@ need() { command -v "$1" >/dev/null 2>&1 || { say "audiosetup: '$1' is missing (
 # Boards with a "TOHDMITX I2S SRC" control (Amlogic) route HDMI audio from one of the I2S/TDM outputs: every output is
 # tried, those that have a gain control (so the vendor sound card actually uses them) first, and every PCM device of the
 # card, highest number first. Other boards: the devices whose name mentions HDMI first, then all the others.
+#
+# The device tree already says which outputs can feed HDMI: the sound card lists one DAI link per output, and the links that
+# reach the HDMI transmitter (the "tohdmitx" node) carry a dai-format. HDMI audio needs "i2s"; an output wired as "dsp_a" is the
+# one that produced a noisy right channel on a G12A box, so it is dropped when at least one "i2s" output exists.
+dt_hdmi_taps() {   # prints "<letter> <dai-format>" for every I2S/TDM output wired to the HDMI transmitter; nothing if unknown
+    dt=/proc/device-tree
+    [ -d "$dt" ] || return 0
+    node=""
+    for c in $(find -L "$dt" -name compatible 2>/dev/null); do
+        if tr '\0' ' ' < "$c" 2>/dev/null | grep -q 'tohdmitx'; then node="$(dirname "$c")"; break; fi
+    done
+    [ -n "$node" ] && [ -f "$node/phandle" ] || return 0
+    ph="$(od -An -v -tx1 "$node/phandle" | tr -d ' \n')"
+    for sound in "$dt"/sound*; do
+        [ -d "$sound" ] || continue
+        for link in "$sound"/dai-link-*; do
+            [ -d "$link" ] || continue
+            fmt=""; [ -f "$link/dai-format" ] && fmt="$(tr -d '\0' < "$link/dai-format")"
+            for f in "$link"/sound-dai "$link"/codec*/sound-dai; do
+                [ -f "$f" ] || continue
+                # cells are big-endian 32-bit: <phandle index> pairs for a node with #sound-dai-cells = 1
+                set -- $(od -An -v -tx1 "$f" | tr -d '\n' | sed 's/  */ /g')
+                while [ $# -ge 8 ]; do
+                    if [ "$1$2$3$4" = "$ph" ]; then
+                        case "$8" in 00) l=A ;; 01) l=B ;; 02) l=C ;; *) l="" ;; esac
+                        [ -n "$l" ] && say "$l ${fmt:-unknown}"
+                    fi
+                    shift 8
+                done
+            done
+        done
+    done
+}
+
 candidates() {
+    taps="$(dt_hdmi_taps)"
     for card in $(awk '/^ *[0-9]+ \[/ {print $1}' /proc/asound/cards 2>/dev/null); do
         devs="$(aplay -l 2>/dev/null | sed -n "s/^card $card:.*device \([0-9]*\):.*/\1/p" | sort -rn)"
         [ -n "$devs" ] || continue
@@ -50,6 +85,25 @@ candidates() {
                 amixer -c "$card" cget name="TDMOUT_${letter} Gain Enable Switch" >/dev/null 2>&1 && gain="$gain $it"
             done
             use="$sel"; [ -n "$use" ] || use="$gain"; [ -n "$use" ] || use="$items"
+            # Device tree filter: keep only the outputs wired as i2s, if there is at least one of them that this card really has.
+            if [ -n "$taps" ]; then
+                good=""
+                for it in $use; do
+                    echo "$taps" | grep -q "^${it#*:} i2s\$" && good="$good $it"
+                done
+                [ -n "$good" ] && use="$good"
+            fi
+            # Order: I2S B, then C, then A (then anything else). Measured on a G12A box (S905L3A): through I2S A the HDMI right channel is
+            # pure noise (the left channel is fine, so the beeps are still heard and every candidate looks like it works), through B and C
+            # both channels are clean. B is the output the mainline kernel uses for HDMI.
+            ordered=""
+            for pref in B C A; do
+                for it in $use; do [ "${it#*:}" = "$pref" ] && ordered="$ordered $it"; done
+            done
+            for it in $use; do
+                case " $ordered " in *" $it "*) ;; *) ordered="$ordered $it" ;; esac
+            done
+            use="$ordered"
             for it in $use; do
                 for dev in $devs; do say "$card $dev ${it%%:*} ${it#*:}"; done
             done
@@ -130,7 +184,7 @@ play_candidate() {   # index card device tdm_index tdm_letter
 
 run_tests() {   # [only index]
     only="${1:-0}"
-    say "Playing the candidates. Listen on the TV: candidate N beeps N times (after about 3 seconds of silence)."
+    say "Playing the candidates. Listen on the TV: candidate N beeps N times (after about 3 seconds of silence). A clean beep has no hiss behind it."
     make_tone
     i=0
     candidates | while read -r card dev tdm letter; do
@@ -231,7 +285,7 @@ case "${1:-}" in
         while :; do
             run_tests
             say "Several candidates can work: the sound card has more than one playback device that reaches the same HDMI output."
-            say "If you heard more than one, any of them is fine: type the lowest number you heard."
+            say "If you heard more than one, any of them is fine: type the lowest number that sounded clean. A candidate with hiss or crackle on it is not good: skip it."
             printf 'Number you heard (0 = none, r = play again, q = quit): ' >/dev/tty
             read -r answer </dev/tty || exit 1
             case "$answer" in

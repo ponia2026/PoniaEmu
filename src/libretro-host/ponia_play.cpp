@@ -192,6 +192,7 @@ struct Frontend {
     SDL_Texture* tex = nullptr;
     unsigned tex_w = 0, tex_h = 0;
     SDL_AudioDeviceID audio = 0;
+    bool audio_dead = false;   // the audio device stopped consuming samples: the game is paced by a timer instead of the audio queue
     SDL_GameController* pad = nullptr;
     std::vector<uint8_t> last_frame; unsigned last_pitch = 0, last_w = 0, last_h = 0;
 
@@ -1752,7 +1753,21 @@ int ponia_play(int argc, char** argv) {
             if (rewind_step()) { poll_input(); run_core(); } else osd_show("REWIND END");
             continue;
         }
-        if (F.audio) { while (SDL_GetQueuedAudioSize(F.audio) > target_bytes && !F.quit) SDL_Delay(1); }
+        if (F.audio && !F.audio_dead) {
+            // Pace the game by the audio queue. A sound server that is stuck or suspended never drains it: after 1.5 s without any progress give up on the
+            // audio device and run on a timer, so the game keeps going (silently) instead of freezing.
+            Uint32 last_size = SDL_GetQueuedAudioSize(F.audio), last_move = SDL_GetTicks();
+            while (last_size > target_bytes && !F.quit) {
+                SDL_Delay(1);
+                const Uint32 sz = SDL_GetQueuedAudioSize(F.audio), now = SDL_GetTicks();
+                if (sz < last_size) { last_size = sz; last_move = now; }
+                else if (now - last_move > 1500) {
+                    plog("poniaplay: the audio device is not consuming samples, continuing without sound\n");
+                    F.audio_dead = true; SDL_ClearQueuedAudio(F.audio); next_tick = now;
+                    break;
+                }
+            }
+        }
         else { Uint32 now = SDL_GetTicks(); if (now < next_tick) SDL_Delay(next_tick - now); next_tick += (Uint32)(1000.0 / F.fps); }
         poll_input(); run_core();
         rewind_capture();

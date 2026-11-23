@@ -17,6 +17,8 @@
 
 #include "GamepadButtonNavigation.h"
 
+#include "Log.h"
+
 #include <QGuiApplication>
 #include <QKeyEvent>
 #include <QTimer>
@@ -32,10 +34,23 @@ void emit_key(Qt::Key key, QEvent::Type event_type, bool autorep)
     Q_ASSERT(key != Qt::Key_unknown);
     Q_ASSERT(event_type == QEvent::KeyPress || event_type == QEvent::KeyRelease);
 
-    QWindow* const focus_window = qApp ? qApp->focusWindow() : nullptr;
-    if (focus_window) {
+    // Right after the process starts (before the window is activated) nothing has focus yet: deliver to the first visible
+    // window instead of dropping the key, otherwise the gamepad is dead until the frontend is restarted.
+    QWindow* target = qApp ? qApp->focusWindow() : nullptr;
+    if (!target && qApp) {
+        for (QWindow* const w : QGuiApplication::topLevelWindows()) {
+            if (w->isVisible()) { target = w; break; }
+        }
+        static bool logged = false;
+        if (!logged) {
+            logged = true;
+            Log::info(QStringLiteral("Gamepad"), LOGMSG("No window has the focus yet, sending gamepad keys to %1")
+                .arg(target ? QStringLiteral("the first visible window") : QStringLiteral("nobody (dropped)")));
+        }
+    }
+    if (target) {
         QKeyEvent event(event_type, key, Qt::NoModifier, QString(), autorep);
-        QGuiApplication::sendEvent(focus_window, &event);
+        QGuiApplication::sendEvent(target, &event);
     }
 }
 } // namespace
