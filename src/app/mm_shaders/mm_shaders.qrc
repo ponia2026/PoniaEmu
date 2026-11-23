@@ -1,0 +1,15 @@
+<!DOCTYPE RCC>
+<!-- Video shader variants that Qt Multimedia asks for when the OpenGL context has no one-channel (R8) textures, but that distribution
+     builds of Qt do not ship (they are built from qtmultimedia/src/multimedia/shaders/*_a.frag of Qt 6.8.2, Qt Company, LGPL-3.0 / GPL-2.0).
+     Without them the videos of the game list stay blank. The prefix is the path Qt Multimedia loads them from. -->
+<RCC version="1.0">
+  <qresource prefix="/qt-project.org/multimedia/shaders">
+    <file>y_a.frag.qsb</file>
+    <file>nv12_a.frag.qsb</file>
+    <file>nv21_a.frag.qsb</file>
+    <file>imc2_a.frag.qsb</file>
+    <file>imc4_a.frag.qsb</file>
+    <file>yuv_triplanar_a.frag.qsb</file>
+    <file>yvu_triplanar_a.frag.qsb</file>
+  </qresource>
+</RCC>

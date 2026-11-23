@@ -31,6 +31,12 @@ qt_add_resources(PEGASUS_LOCALE_SRC "${PEGASUS_LOCALE_QRC}")
 
 add_library(pegasus-locales "${PEGASUS_LOCALE_SRC}")
 
+# Video shader variants that Qt Multimedia needs but the distributions' Qt builds do not ship (see mm_shaders/mm_shaders.qrc)
+if(NOT ANDROID)
+    qt_add_resources(PONIA_MM_SHADERS_SRC "${CMAKE_CURRENT_SOURCE_DIR}/mm_shaders/mm_shaders.qrc")
+    add_library(ponia-mm-shaders "${PONIA_MM_SHADERS_SRC}")
+endif()
+
 
 # Main runtime
 
@@ -45,6 +51,9 @@ target_link_libraries(poniaemu PUBLIC
     pegasus-locales
     pegasus-qml
 )
+if(NOT ANDROID)
+    target_link_libraries(poniaemu PUBLIC ponia-mm-shaders)
+endif()
 if(COMMAND qt_import_qml_plugins)
     qt_import_qml_plugins(poniaemu)
 endif()

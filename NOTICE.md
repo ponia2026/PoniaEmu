@@ -50,3 +50,7 @@ Copyright notices in the original source files are retained as required by the G
 All trademarks, service marks, trade names, trade dress, product names and logos are the property of their respective owners.
 All company, product and service names used in this product are for identification purposes only.
 Use of these names, logos and brands does not imply endorsement.
+
+## Qt Multimedia video shaders
+
+src/app/mm_shaders/*.qsb are compiled from the Qt 6.8.2 Qt Multimedia fragment shaders (alpha-texture variants), (C) The Qt Company, LGPL-3.0 / GPL-2.0. They are bundled because several distribution builds of Qt do not ship them.

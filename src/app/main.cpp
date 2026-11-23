@@ -26,6 +26,8 @@
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QIcon>
+#include <QOpenGLContext>
+#include <QSurfaceFormat>
 #include <QStandardPaths>
 #include <QSettings>
 #include <QtPlugin>
@@ -223,6 +225,9 @@ int main(int argc, char *argv[])
     Q_INIT_RESOURCE(assets);
     Q_INIT_RESOURCE(locales);
 #endif
+#ifndef Q_OS_ANDROID
+    Q_INIT_RESOURCE(mm_shaders);   // the "_a" video shaders of Qt Multimedia (src/app/mm_shaders)
+#endif
 
     // Let themes read small local files (e.g. the optional overrides.json of the bundled theme).
     // Qt disables XMLHttpRequest GET on local files unless this is set.
@@ -236,6 +241,38 @@ int main(int argc, char *argv[])
 #endif
 
     TerminalKbd::on_startup();
+
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+    // On a console without a desktop (KMS/DRM, eglfs) the Qt Quick context can come up without one-channel (R8) textures. Qt
+    // Multimedia then asks for "..._a" video shaders (alpha-texture variants) that the distribution's Qt does not ship, and the
+    // videos stay blank ("Failed to find shader ...yuv_triplanar_a.frag.qsb"). An OpenGL ES 3.0 context always has R8.
+    // PONIA_GL_FORMAT=es3|core|compat|default overrides the choice (default: es3 when no desktop session is running).
+    {
+        QString choice = qEnvironmentVariable("PONIA_GL_FORMAT").trimmed().toLower();
+        if (choice.isEmpty()) {
+            const bool desktop = !qEnvironmentVariableIsEmpty("DISPLAY") || !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY");
+            const QByteArray platform = qgetenv("QT_QPA_PLATFORM");
+            choice = (!desktop || platform.startsWith("eglfs")) ? QStringLiteral("es3") : QStringLiteral("default");
+        }
+        QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
+        bool set = true;
+        if (choice == QLatin1String("es3")) {
+            fmt.setRenderableType(QSurfaceFormat::OpenGLES);
+            fmt.setVersion(3, 0);
+        } else if (choice == QLatin1String("core")) {
+            fmt.setRenderableType(QSurfaceFormat::OpenGL);
+            fmt.setVersion(3, 3);
+            fmt.setProfile(QSurfaceFormat::CoreProfile);
+        } else if (choice == QLatin1String("compat")) {
+            fmt.setRenderableType(QSurfaceFormat::OpenGL);
+            fmt.setProfile(QSurfaceFormat::CompatibilityProfile);
+        } else {
+            set = false;
+        }
+        if (set)
+            QSurfaceFormat::setDefaultFormat(fmt);
+    }
+#endif
 
     QCoreApplication::addLibraryPath(QStringLiteral("lib/plugins"));
     QCoreApplication::addLibraryPath(QStringLiteral("lib"));
