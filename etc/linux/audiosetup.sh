@@ -418,7 +418,11 @@ case "${1:-}" in
     --reinstall) install_boot ;;          # rewrite the boot files from the saved choice (the installer does this after an upgrade)
     "")
         count="$(candidates | wc -l)"
-        [ "$count" -gt 0 ] || { say "audiosetup: no sound device found."; exit 1; }
+        if [ "$count" -eq 0 ]; then
+            say "audiosetup: no sound device found: the kernel has no sound card on this board."
+            say "  On a board whose device tree does not enable the HDMI audio (some Rockchip boards) there is nothing to set up until it is enabled."
+            exit 1
+        fi
         [ -r /dev/tty ] && [ -w /dev/tty ] || { say "audiosetup: no terminal to ask on; use --test and --apply N."; exit 1; }
         say "HDMI audio setup: $count candidate(s). Turn the TV on, select the HDMI input and set a normal volume."
         say "Stop any running game first: the test uses the sound device and changes the HDMI route."

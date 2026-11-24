@@ -107,16 +107,25 @@ if [ "${NO_DEPS:-0}" != 1 ]; then
         fi
         PKGS=""
         # libgl1: the N64, PSP and Saturn cores link libGL.so.1; libbluetooth3/libudev1/libcurl4/libpugixml1v5: needed by the GameCube core (dolphin) from PoniaCore; alsa-utils: HDMI sound setup (amixer, speaker-test)
+        # gstreamer1.0-*: Qt Multimedia plays the preview videos through GStreamer; with only the GStreamer libraries (a minimal Armbian/Debian
+        # image) the program crashes with "gst_element_link_many ... failed" and a segmentation fault as soon as a video is shown. plugins-base
+        # (playbin) and plugins-good (mp4/audio) are required, libav decodes H.264, alsa/pulseaudio are the sound outputs.
         # libgles2/libegl1/libgbm1: the player draws through SDL on KMS/DRM and needs the GLES library; without it a game runs with sound but no picture
         for p in libsdl2-2.0-0 libgles2 libegl1 libgbm1 libgl1 fontconfig \
                  libqt6core6 libqt6gui6 libqt6network6 libqt6qml6 libqt6quick6 libqt6core5compat6 \
-                 libqt6sql6 libqt6sql6-sqlite libqt6svg6 qt6-svg-plugins qt6-image-formats-plugins qt6-qpa-plugins qt6-wayland libxcb-cursor0 \
+                 libqt6sql6 libqt6sql6-sqlite libqt6svg6 qt6-image-formats-plugins qt6-qpa-plugins qt6-wayland libxcb-cursor0 \
+                 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav gstreamer1.0-alsa gstreamer1.0-pulseaudio \
                  qml6-module-qtqml qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
                  qml6-module-qtquick-window qml6-module-qtquick-templates qml6-module-qtquick-timeline \
                  qml6-module-qtqml-workerscript qml6-module-qtqml-models qml6-module-qt-labs-qmlmodels \
                  qml6-module-qtmultimedia qml6-module-qt5compat-graphicaleffects \
                  libbluetooth3 libudev1 libcurl4 libpugixml1v5 alsa-utils; do
             if q="$(pick_pkg "$p")"; then PKGS="$PKGS $q"; else say "note: package $p is not available here, skipping."; fi
+        done
+        # Optional packages: some releases ship them as a separate package, others fold them into another one (the SVG plugins are inside
+        # libqt6svg6 on Debian 12 and Ubuntu 24.04), so a missing one is not worth a note.
+        for p in qt6-svg-plugins; do
+            if q="$(pick_pkg "$p")"; then PKGS="$PKGS $q"; fi
         done
         if [ "${DRY_RUN:-0}" != 1 ] && ! apt-cache policy libqt6core6 libqt6core6t64 2>/dev/null | grep -q "Candidate: [^(]"; then
             say ""

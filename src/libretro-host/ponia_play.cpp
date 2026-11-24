@@ -1588,6 +1588,26 @@ int ponia_play(int argc, char** argv) {
         const std::string cn = core_path.substr(q0 == std::string::npos ? 0 : q0 + 1);
         for (const auto& d : CORE_DEFAULTS)
             if (cn.find(d.core) != std::string::npos && !F.opt_user.count(d.key)) F.opt_user[d.key] = d.val;
+#if defined(__linux__) && !defined(__ANDROID__)
+        // The AppleWin core resolves "<directory of the executable>/../applewin" with canonical(), which throws when the folder is missing
+        // (its ROMs are embedded, the folder itself stays empty). Create it so the core can start.
+        if (cn.find("applewin") != std::string::npos) {
+            char self[4096];
+            const ssize_t len = ::readlink("/proc/self/exe", self, sizeof(self) - 1);
+            if (len > 0) {
+                std::string dir(self, (size_t)len);
+                const size_t k = dir.find_last_of('/');
+                if (k != std::string::npos) {
+                    dir.resize(k);
+                    const size_t k2 = dir.find_last_of('/');
+                    if (k2 != std::string::npos) {
+                        dir.resize(k2);
+                        ::mkdir((dir + "/applewin").c_str(), 0755);   // best effort
+                    }
+                }
+            }
+        }
+#endif
 #if !defined(__ANDROID__) && (defined(__aarch64__) || defined(__arm__))
         // Linux on ARM boards runs the open-source Mesa driver (Panfrost on Mali): every time PPSSPP reads a picture back from the GPU
         // the whole GPU pipeline has to drain, which costs far more than on the vendor driver Android uses (a Mali-G31 game fell to

@@ -189,6 +189,20 @@ std::unique_ptr<QTemporaryFile> prepare_eglfs_output()
     return file;
 }
 
+// Is a mouse (or anything else that moves a pointer) connected? The kernel lists the handlers of every input device.
+bool has_mouse()
+{
+    QFile devices(QStringLiteral("/proc/bus/input/devices"));
+    if (!devices.open(QIODevice::ReadOnly | QIODevice::Text))
+        return true;   // cannot tell: keep Qt's default
+    while (!devices.atEnd()) {
+        const QByteArray line = devices.readLine();
+        if (line.startsWith("H: Handlers=") && line.contains("mouse"))
+            return true;
+    }
+    return false;
+}
+
 // Without a desktop session Qt would default to the xcb plugin and fail ("could not connect to display").
 // Use the framebuffer/KMS output then, so that starting the program from a console works on a TV box.
 std::unique_ptr<QTemporaryFile> prepare_linux_display()
@@ -199,8 +213,14 @@ std::unique_ptr<QTemporaryFile> prepare_linux_display()
         qputenv("QT_QPA_PLATFORM", "eglfs");
     }
 
-    if (qgetenv("QT_QPA_PLATFORM").startsWith("eglfs"))
+    if (qgetenv("QT_QPA_PLATFORM").startsWith("eglfs")) {
+        // The frontend is driven by a gamepad, so without a mouse there is nothing to show a pointer for. On KMS, Qt draws the
+        // pointer with its own software cursor, and on some boards that code crashes right after a game has ended and the
+        // frontend takes the screen back. QT_QPA_EGLFS_HIDECURSOR=0 (or any value set by the user) keeps the pointer.
+        if (!qEnvironmentVariableIsSet("QT_QPA_EGLFS_HIDECURSOR") && !has_mouse())
+            qputenv("QT_QPA_EGLFS_HIDECURSOR", "1");
         return prepare_eglfs_output();
+    }
     return nullptr;
 }
 

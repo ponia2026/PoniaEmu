@@ -120,7 +120,7 @@ struct TargetRule { Target target; const char* sys; const char* core; const char
 inline const TargetRule* target_rules(int& n) {
     static const TargetRule T[] = {
         // 32-bit ARM Linux. The reference is an RK3288 class board: systems that are not smooth there are not offered.
-        {Target::LinuxArm32, "nds",       "desmume2015",   "melonds has no ARM32 JIT; desmume2015 comes from the buildbot"},
+        {Target::LinuxArm32, "nds",       "desmume2015",   "melonds has no ARM32 JIT; desmume2015 comes from PoniaCore"},
         {Target::LinuxArm32, "mame",      "mame2003_plus", "full MAME does not fit the 32-bit address space; mame2003_plus comes from the buildbot"},
         {Target::LinuxArm32, "n64",       "",              "not smooth enough; decide after testing on the reference board"},
         {Target::LinuxArm32, "dc",        "",              "not smooth enough; decide after testing on the reference board"},
@@ -166,6 +166,7 @@ inline const PoniaCoreRow* poniacore_cores(int& n) {
         {Target::LinuxArm32, "stella"},   // built from the last upstream commit that gcc 12 can compile (before std::format)
         {Target::LinuxArm32, "dosbox_pure"},
         {Target::LinuxArm32, "applewin"},
+        {Target::LinuxArm32, "desmume2015"},   // the buildbot has no ARMv7 build of it
     };
     n = (int)(sizeof T / sizeof T[0]);
     return T;

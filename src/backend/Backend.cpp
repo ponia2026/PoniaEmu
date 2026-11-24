@@ -51,11 +51,19 @@
 
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
 #  include <dirent.h>
+#  include <dlfcn.h>
 #  include <sys/ioctl.h>
+#  include <sys/mman.h>
+#  include <sys/stat.h>
+#  include <sys/types.h>
 #  include <unistd.h>
 #  include <climits>
+#  include <cstdint>
 #  include <cstdlib>
 #  include <cstring>
+#  include <map>
+#  include <tuple>
+#  include <vector>
 #endif
 
 #if defined(WITH_SDL_GAMEPAD) || defined(WITH_SDL_POWER)
@@ -92,6 +100,258 @@ void create_config_dirs()
 // On KMS/DRM (eglfs) the process that owns the screen is the DRM master, and tearing down the UI does not give that up.
 // A game started afterwards (the built-in player, an emulator, a port) then cannot take the screen and shows nothing.
 // So the master role is handed over explicitly: dropped before the game starts, taken back when it has ended.
+//
+// Some display drivers (seen on a Rockchip RK3288) come back with the main plane detached after a game that drew through its own
+// KMS session: the player cannot restore the screen, the kernel then answers every page flip of the frontend with "resource busy"
+// and the picture stays frozen. So the screen mode is remembered before the master role is dropped, and set again if the main
+// plane has lost its framebuffer when the role is taken back. The DRM functions are looked up at run time (libdrm is there
+// whenever Qt runs on KMS), so nothing is needed to build.
+
+// The leading part of libdrm's public structures (xf86drmMode.h); only what is read or passed on is declared.
+struct DrmModeInfo {
+    uint32_t clock;
+    uint16_t hdisplay, hsync_start, hsync_end, htotal, hskew;
+    uint16_t vdisplay, vsync_start, vsync_end, vtotal, vscan;
+    uint32_t vrefresh, flags, type;
+    char name[32];
+};
+struct DrmRes {
+    int count_fbs; uint32_t* fbs;
+    int count_crtcs; uint32_t* crtcs;
+    int count_connectors; uint32_t* connectors;
+    int count_encoders; uint32_t* encoders;
+    uint32_t min_width, max_width, min_height, max_height;
+};
+struct DrmCrtc {
+    uint32_t crtc_id, buffer_id, x, y, width, height;
+    int mode_valid;
+    DrmModeInfo mode;
+    int gamma_size;
+};
+struct DrmEncoder { uint32_t encoder_id, encoder_type, crtc_id, possible_crtcs, possible_clones; };
+struct DrmConnector { uint32_t connector_id, encoder_id, connector_type, connector_type_id; };   // the rest is not read
+struct DrmFb { uint32_t fb_id, width, height, pitch, bpp, depth, handle; };
+
+struct DrmApi {
+    DrmRes* (*get_resources)(int) = nullptr;
+    void (*free_resources)(DrmRes*) = nullptr;
+    DrmCrtc* (*get_crtc)(int, uint32_t) = nullptr;
+    void (*free_crtc)(DrmCrtc*) = nullptr;
+    DrmConnector* (*get_connector)(int, uint32_t) = nullptr;
+    void (*free_connector)(DrmConnector*) = nullptr;
+    DrmEncoder* (*get_encoder)(int, uint32_t) = nullptr;
+    void (*free_encoder)(DrmEncoder*) = nullptr;
+    int (*set_crtc)(int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t*, int, DrmModeInfo*) = nullptr;
+    DrmFb* (*get_fb)(int, uint32_t) = nullptr;
+    void (*free_fb)(DrmFb*) = nullptr;
+    bool ok = false;
+};
+
+const DrmApi& drm_api()
+{
+    static const DrmApi api = [] {
+        DrmApi a;
+        void* lib = ::dlopen("libdrm.so.2", RTLD_LAZY);
+        if (!lib)
+            return a;
+        auto sym = [lib](const char* name) { return ::dlsym(lib, name); };
+        a.get_resources = reinterpret_cast<decltype(a.get_resources)>(sym("drmModeGetResources"));
+        a.free_resources = reinterpret_cast<decltype(a.free_resources)>(sym("drmModeFreeResources"));
+        a.get_crtc = reinterpret_cast<decltype(a.get_crtc)>(sym("drmModeGetCrtc"));
+        a.free_crtc = reinterpret_cast<decltype(a.free_crtc)>(sym("drmModeFreeCrtc"));
+        // the "current" variant does not probe the connector again
+        a.get_connector = reinterpret_cast<decltype(a.get_connector)>(sym("drmModeGetConnectorCurrent"));
+        if (!a.get_connector)
+            a.get_connector = reinterpret_cast<decltype(a.get_connector)>(sym("drmModeGetConnector"));
+        a.free_connector = reinterpret_cast<decltype(a.free_connector)>(sym("drmModeFreeConnector"));
+        a.get_encoder = reinterpret_cast<decltype(a.get_encoder)>(sym("drmModeGetEncoder"));
+        a.free_encoder = reinterpret_cast<decltype(a.free_encoder)>(sym("drmModeFreeEncoder"));
+        a.set_crtc = reinterpret_cast<decltype(a.set_crtc)>(sym("drmModeSetCrtc"));
+        a.get_fb = reinterpret_cast<decltype(a.get_fb)>(sym("drmModeGetFB"));
+        a.free_fb = reinterpret_cast<decltype(a.free_fb)>(sym("drmModeFreeFB"));
+        a.ok = a.get_resources && a.free_resources && a.get_crtc && a.free_crtc && a.get_connector && a.free_connector
+            && a.get_encoder && a.free_encoder && a.set_crtc && a.get_fb && a.free_fb;
+        return a;
+    }();
+    return api;
+}
+
+struct SavedCrtc {
+    dev_t device;
+    uint32_t crtc_id, buffer_id, x, y;
+    DrmModeInfo mode;
+    std::vector<uint32_t> connectors;
+};
+std::vector<SavedCrtc> g_saved_crtcs;
+
+void save_crtcs(int fd, dev_t device)
+{
+    const DrmApi& api = drm_api();
+    if (!api.ok)
+        return;
+    DrmRes* const res = api.get_resources(fd);
+    if (!res)
+        return;
+    for (int i = 0; i < res->count_crtcs; ++i) {
+        DrmCrtc* const crtc = api.get_crtc(fd, res->crtcs[i]);
+        if (!crtc)
+            continue;
+        if (crtc->buffer_id != 0 && crtc->mode_valid) {
+            SavedCrtc s;
+            s.device = device;
+            s.crtc_id = crtc->crtc_id;
+            s.buffer_id = crtc->buffer_id;
+            s.x = crtc->x;
+            s.y = crtc->y;
+            s.mode = crtc->mode;
+            for (int c = 0; c < res->count_connectors; ++c) {
+                DrmConnector* const conn = api.get_connector(fd, res->connectors[c]);
+                if (!conn)
+                    continue;
+                if (conn->encoder_id) {
+                    if (DrmEncoder* const enc = api.get_encoder(fd, conn->encoder_id)) {
+                        if (enc->crtc_id == crtc->crtc_id)
+                            s.connectors.push_back(conn->connector_id);
+                        api.free_encoder(enc);
+                    }
+                }
+                api.free_connector(conn);
+            }
+            if (!s.connectors.empty())
+                g_saved_crtcs.push_back(std::move(s));
+        }
+        api.free_crtc(crtc);
+    }
+    api.free_resources(res);
+}
+
+// A framebuffer filled with black (a "dumb" buffer, created once per device and size and reused). Returns 0 when it cannot be made.
+uint32_t black_framebuffer(int fd, dev_t device, uint32_t width, uint32_t height)
+{
+    struct CreateDumb { uint32_t height, width, bpp, flags, handle, pitch; uint64_t size; };
+    struct MapDumb { uint32_t handle, pad; uint64_t offset; };
+    struct FbCmd { uint32_t fb_id, width, height, pitch, bpp, depth, handle; };
+    static std::map<std::tuple<dev_t, uint32_t, uint32_t>, uint32_t> cache;
+    const auto key = std::make_tuple(device, width, height);
+    const auto it = cache.find(key);
+    if (it != cache.end())
+        return it->second;
+
+    CreateDumb create = {height, width, 32, 0, 0, 0, 0};
+    if (ioctl(fd, _IOWR('d', 0xB2, CreateDumb), &create) != 0)
+        return 0;
+    MapDumb map = {create.handle, 0, 0};
+    if (ioctl(fd, _IOWR('d', 0xB3, MapDumb), &map) == 0) {
+        void* const mem = mmap(nullptr, size_t(create.size), PROT_READ | PROT_WRITE, MAP_SHARED, fd, off_t(map.offset));
+        if (mem != MAP_FAILED) {
+            memset(mem, 0, size_t(create.size));
+            munmap(mem, size_t(create.size));
+        }
+    }
+    FbCmd fb = {0, width, height, create.pitch, 32, 24, create.handle};
+    if (ioctl(fd, _IOWR('d', 0xAE, FbCmd), &fb) != 0)
+        return 0;
+    cache[key] = fb.fb_id;
+    return fb.fb_id;
+}
+
+// The main plane can already be detached when the frontend hides its window, before the master role is dropped, so the
+// framebuffer to show again is looked up now: one of the frontend's own framebuffers (they are listed per open file, so every
+// open file of the device is asked) that has the size of the mode. The mode and outputs come from the display controller if it
+// is still enabled, otherwise from what was remembered before the game.
+void restore_crtcs(int master_fd, dev_t device, const std::vector<int>& fds)
+{
+    const DrmApi& api = drm_api();
+    if (!api.ok) {
+        Log::info(LOGMSG("Screen check after the game skipped: libdrm not found"));
+        return;
+    }
+    DrmRes* const res = api.get_resources(master_fd);
+    if (!res)
+        return;
+    for (int i = 0; i < res->count_crtcs; ++i) {
+        DrmCrtc* const crtc = api.get_crtc(master_fd, res->crtcs[i]);
+        if (!crtc)
+            continue;
+        const uint32_t crtc_id = crtc->crtc_id;
+        const bool lost = crtc->buffer_id == 0;
+        DrmModeInfo mode = crtc->mode;
+        bool have_mode = crtc->mode_valid != 0;
+        uint32_t x = crtc->x, y = crtc->y;
+        api.free_crtc(crtc);
+        if (!lost)
+            continue;
+
+        std::vector<uint32_t> connectors;
+        for (int c = 0; c < res->count_connectors; ++c) {
+            DrmConnector* const conn = api.get_connector(master_fd, res->connectors[c]);
+            if (!conn)
+                continue;
+            if (conn->encoder_id) {
+                if (DrmEncoder* const enc = api.get_encoder(master_fd, conn->encoder_id)) {
+                    if (enc->crtc_id == crtc_id)
+                        connectors.push_back(conn->connector_id);
+                    api.free_encoder(enc);
+                }
+            }
+            api.free_connector(conn);
+        }
+        uint32_t remembered_fb = 0;
+        for (const SavedCrtc& s : g_saved_crtcs) {
+            if (s.device != device || s.crtc_id != crtc_id)
+                continue;
+            if (!have_mode) { mode = s.mode; x = s.x; y = s.y; have_mode = true; }
+            if (connectors.empty()) connectors = s.connectors;
+            remembered_fb = s.buffer_id;
+        }
+        if (!have_mode || connectors.empty())
+            continue;   // this controller was not showing anything before the game either
+
+        // Show a black picture first: the buffers still around at this moment may be the text console's, and showing that for a
+        // second or two until the frontend draws again looks like a flash of a command line.
+        uint32_t fb_id = black_framebuffer(master_fd, device, mode.hdisplay, mode.vdisplay);
+        if (!fb_id && remembered_fb) {
+            if (DrmFb* const fb = api.get_fb(master_fd, remembered_fb)) {
+                fb_id = remembered_fb;
+                api.free_fb(fb);
+            }
+        }
+        for (const int fd : fds) {
+            if (fb_id)
+                break;
+            DrmRes* const own = api.get_resources(fd);
+            if (!own)
+                continue;
+            for (int f = own->count_fbs - 1; f >= 0 && !fb_id; --f) {
+                if (DrmFb* const fb = api.get_fb(fd, own->fbs[f])) {
+                    if (fb->width == mode.hdisplay && fb->height == mode.vdisplay)
+                        fb_id = fb->fb_id;
+                    api.free_fb(fb);
+                }
+            }
+            api.free_resources(own);
+        }
+        // Some drivers do not list the framebuffers per file. Framebuffer ids are global, so ask for them by number: the newest one
+        // with the size of the mode is the frontend's (the console's own buffer is created at boot and has a lower number).
+        for (uint32_t id = 4096; id > 0 && !fb_id; --id) {
+            if (DrmFb* const fb = api.get_fb(master_fd, id)) {
+                if (fb->width == mode.hdisplay && fb->height == mode.vdisplay)
+                    fb_id = fb->fb_id;
+                api.free_fb(fb);
+            }
+        }
+        if (!fb_id) {
+            Log::info(LOGMSG("The screen lost its picture during the game and no framebuffer of the frontend was found to show again"));
+            continue;
+        }
+        const int rc = api.set_crtc(master_fd, crtc_id, fb_id, x, y, connectors.data(), int(connectors.size()), &mode);
+        Log::info(LOGMSG("The screen lost its picture during the game; set the display mode again (framebuffer %1, %2x%3): %4")
+            .arg(QString::number(fb_id), QString::number(mode.hdisplay), QString::number(mode.vdisplay),
+                 rc == 0 ? QStringLiteral("ok") : QStringLiteral("failed (%1)").arg(rc)));
+    }
+    api.free_resources(res);
+}
+
 void set_drm_master(bool on)
 {
     // DRM_IOCTL_SET_MASTER / DRM_IOCTL_DROP_MASTER (drm.h); defined here so the DRM headers are not needed to build
@@ -100,6 +360,10 @@ void set_drm_master(bool on)
     if (!dir)
         return;
     int handled = 0;
+    std::map<dev_t, int> masters;   // one open file per device that is (or is about to be) the master
+    std::map<dev_t, std::vector<int>> all_fds;   // every open file of each device
+    if (!on)
+        g_saved_crtcs.clear();
     while (const dirent* entry = ::readdir(dir)) {
         const int fd = std::atoi(entry->d_name);
         if (fd <= 2)
@@ -110,10 +374,27 @@ void set_drm_master(bool on)
         if (len <= 0)
             continue;
         target[len] = 0;
-        if (std::strncmp(target, "/dev/dri/card", 13) == 0 && ::ioctl(fd, request) == 0)
+        if (std::strncmp(target, "/dev/dri/card", 13) != 0)
+            continue;
+        struct stat st;
+        const bool known = ::fstat(fd, &st) == 0;
+        if (known)
+            all_fds[st.st_rdev].push_back(fd);
+        if (!on && known && !masters.count(st.st_rdev)) {
+            masters[st.st_rdev] = fd;
+            save_crtcs(fd, st.st_rdev);   // before the role is dropped
+        }
+        if (::ioctl(fd, request) == 0) {
             ++handled;
+            if (on && known && !masters.count(st.st_rdev))
+                masters[st.st_rdev] = fd;
+        }
     }
     ::closedir(dir);
+    if (on) {
+        for (const auto& m : masters)
+            restore_crtcs(m.second, m.first, all_fds[m.first]);
+    }
     Log::info(LOGMSG("DRM master %1 on %2 device(s)").arg(on ? QStringLiteral("taken") : QStringLiteral("released")).arg(handled));
 }
 #endif
