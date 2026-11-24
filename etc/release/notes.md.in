@@ -71,7 +71,8 @@ Requirements: an apt-based system (Debian, Ubuntu, Armbian and similar) with Qt 
 for example Debian 12 or Ubuntu 24.04 and later.
 
 On a box without a desktop the installer also helps with the **HDMI sound**: it plays short beeps (candidate N beeps N times), you tell it
-which one you heard, and it makes that route the default. Run it again any time with `audiosetup`.
+which one you heard, and it makes that route the default. The choice is saved by sound card name and restored at every boot before the sound
+server starts, so it survives restarts and USB sound devices coming and going. Run it again any time with `audiosetup`.
 
 ### Supported systems
 

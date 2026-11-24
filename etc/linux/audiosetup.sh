@@ -13,7 +13,11 @@
 #   sh audiosetup.sh --list       print the candidates
 #   sh audiosetup.sh --test [N]   play all candidates, or only candidate N, and stop
 #   sh audiosetup.sh --apply N    apply candidate N without asking
-#   sh audiosetup.sh --reset      remove what this script configured
+#   sh audiosetup.sh --reset      remove what this script configured (the saved choice and the boot service as well)
+#   sh audiosetup.sh --reinstall  rewrite the boot files from the saved choice (/etc/poniaemu/audio.conf)
+#
+# The choice is saved by sound card name and put back at every boot by poniaemu-audio.service (--boot), which waits for the card,
+# sets the mixer routing and only then lets PulseAudio start. This works for every chip: where no routing is needed it only waits for the card.
 #
 #   VOLUME=N    HDMI output level in percent on boards that have a gain control (default 80)
 #   TEST_VOLUME=N   level used for the beeps (default 40)
@@ -108,17 +112,46 @@ candidates() {
                 for dev in $devs; do say "$card $dev ${it%%:*} ${it#*:}"; done
             done
         else
-            hdmi=""; other=""
-            for dev in $devs; do
-                if aplay -l 2>/dev/null | grep -i "^card $card:.*device $dev:" | grep -qi hdmi; then
-                    hdmi="$hdmi $dev"
-                else
-                    other="$other $dev"
-                fi
+            # Other boards: rank every playback device by evidence that it is an HDMI/DisplayPort output.
+            #   +3 the device name mentions HDMI / DisplayPort     +2 the ALSA description of the device does
+            #   +2 the card has an ELD with a connected monitor (card-level, so it only matters between cards)
+            # Ties go to the lower device number. The ranking only decides the order of the beeps; the user still confirms by ear.
+            cid="$(aplay -l 2>/dev/null | sed -n "s/^card $card: \([^ ]*\) .*/\1/p" | head -1)"
+            eld=0
+            for f in /proc/asound/card"$card"/eld#*; do
+                [ -e "$f" ] || continue
+                if grep -q '^monitor_name[[:space:]]\+[^[:space:]]' "$f" 2>/dev/null; then eld=1
+                elif awk '/^monitor_present/ {mp=$2} /^eld_valid/ {ev=$2} END {exit !(mp==1 && ev==1)}' "$f" 2>/dev/null; then eld=1; fi
             done
-            for dev in $hdmi $other; do say "$card $dev -1 -"; done
+            for dev in $devs; do
+                s=0
+                aplay -l 2>/dev/null | grep -i "^card $card:.*device $dev:" | grep -qiE 'hdmi|displayport' && s=$((s + 3))
+                aplay -L 2>/dev/null | awk -v pat="CARD=$cid,DEV=$dev" '
+                    { if ((p1 ~ pat || p2 ~ pat) && $0 ~ /HDMI|DisplayPort/) f = 1; p2 = p1; p1 = $0 } END { exit !f }' && s=$((s + 2))
+                [ "$eld" = 1 ] && s=$((s + 2))
+                [ -n "${AUDIOSETUP_DEBUG:-}" ] && echo "# card $card device $dev score $s (eld=$eld)" >&2
+                echo "$s $dev"
+            done | sort -k1,1rn -k2,2n | while read -r s dev; do say "$card $dev -1 -"; done
         fi
     done
+}
+
+# Is a TV/monitor connected to an HDMI or DisplayPort connector? 0 = yes, 1 = connectors exist but none is connected, 2 = unknown.
+tv_state() {
+    seen=0
+    for d in /sys/class/drm/card*-HDMI* /sys/class/drm/card*-DP*; do
+        [ -r "$d/status" ] || continue
+        seen=1
+        [ "$(cat "$d/status" 2>/dev/null)" = connected ] && return 0
+    done
+    [ "$seen" = 1 ] && return 1
+    return 2
+}
+
+tv_warn() {
+    tv_state
+    [ $? -eq 1 ] && say "WARNING: no TV is detected on the HDMI connector. Connect it and turn it on, or nothing will be heard."
+    return 0
 }
 
 # ---- mixer ------------------------------------------------------------------------------------------------------
@@ -184,6 +217,7 @@ play_candidate() {   # index card device tdm_index tdm_letter
 
 run_tests() {   # [only index]
     only="${1:-0}"
+    tv_warn
     say "Playing the candidates. Listen on the TV: candidate N beeps N times (after about 3 seconds of silence). A clean beep has no hiss behind it."
     make_tone
     i=0
@@ -202,26 +236,85 @@ strip_block() {   # file
 }
 
 PULSE_DROPIN=/etc/systemd/system/pulseaudio-system.service.d/poniaemu-audio.conf
+CONF_DIR=/etc/poniaemu
+CONF=$CONF_DIR/audio.conf
+ROUTE_UNIT=/etc/systemd/system/poniaemu-audio.service
+
+# The choice is kept in $CONF (card NAME, not number: the number changes when a USB sound device is plugged in) and put back at every boot
+# by poniaemu-audio.service, which waits for the sound card, sets the mixer routing and only then lets PulseAudio start. Nothing depends on
+# the saved mixer state or on the order the drivers happen to load in.
+card_index_of() { sed -n "s/^ *\([0-9][0-9]*\) \[$1 *\].*/\1/p" /proc/asound/cards 2>/dev/null | head -1; }
+card_id_of()    { sed -n "s/^ *$1 \[\([^] ]*\) *\].*/\1/p" /proc/asound/cards 2>/dev/null | head -1; }
+
+load_conf() {
+    CARD_ID=""; DEVICE=""; TDM_INDEX=-1; TDM_LETTER=-; SAVED_VOLUME=$VOLUME
+    [ -r "$CONF" ] && . "$CONF"
+    [ -n "${CARD_ID:-}" ] && [ -n "${DEVICE:-}" ]
+}
+
+# Boot: wait for the card, route it, and check the routing really stuck. Exit status 1 = it did not (shows up in the journal).
+boot_route() {
+    load_conf || { say "poniaemu-audio: nothing configured, nothing to do."; return 0; }
+    n=0; card=""
+    while [ "$n" -lt 40 ]; do
+        card="$(card_index_of "$CARD_ID")"
+        [ -n "$card" ] && break
+        n=$((n + 1)); sleep 1
+    done
+    [ -n "$card" ] || { say "poniaemu-audio: sound card '$CARD_ID' did not appear within 40 s."; return 1; }
+    if [ "$TDM_INDEX" -ge 0 ] 2>/dev/null; then
+        n=0; got=""
+        while [ "$n" -lt 10 ]; do
+            route "$card" "$DEVICE" "$TDM_INDEX" "$TDM_LETTER" "${SAVED_VOLUME:-$VOLUME}"
+            got="$(amixer -c "$card" cget name='TOHDMITX I2S SRC' 2>/dev/null | sed -n 's/^ *: values=//p')"
+            [ "$got" = "$TDM_INDEX" ] && break
+            n=$((n + 1)); sleep 1
+        done
+        [ "$got" = "$TDM_INDEX" ] || { say "poniaemu-audio: could not set the HDMI route on card $CARD_ID."; return 1; }
+    fi
+    say "poniaemu-audio: card $CARD_ID (number $card) ready, device $DEVICE${TDM_LETTER:+ (I2S $TDM_LETTER)}."
+}
+
+# Safety net after PulseAudio started: make sure the output exists and is the default one (retry for a few seconds).
+pulse_wait() {
+    n=0
+    while [ "$n" -lt 15 ]; do
+        pactl list short sinks 2>/dev/null | grep -q 'ponia_hdmi' || pactl load-module module-alsa-sink device=ponia_hdmi sink_name=ponia_hdmi tsched=0 >/dev/null 2>&1
+        if pactl list short sinks 2>/dev/null | grep -q 'ponia_hdmi'; then pactl set-default-sink ponia_hdmi >/dev/null 2>&1; return 0; fi
+        n=$((n + 1)); sleep 1
+    done
+    say "poniaemu-audio: the PulseAudio output ponia_hdmi could not be created."
+    return 1
+}
 
 reset() {
     strip_block "$ASOUND"
     strip_block "$PULSE_SYSTEM"
     [ -s "$ASOUND" ] || $SUDO rm -f "$ASOUND"
+    if [ -f "$ROUTE_UNIT" ]; then
+        $SUDO systemctl disable poniaemu-audio.service >/dev/null 2>&1 || true
+        $SUDO rm -f "$ROUTE_UNIT"
+    fi
     if [ -f "$PULSE_DROPIN" ]; then
         $SUDO rm -f "$PULSE_DROPIN"
         $SUDO rmdir "$(dirname "$PULSE_DROPIN")" 2>/dev/null || true
-        $SUDO systemctl daemon-reload 2>/dev/null || true
     fi
+    $SUDO rm -f "$CONF"; $SUDO rmdir "$CONF_DIR" 2>/dev/null || true
+    $SUDO systemctl daemon-reload 2>/dev/null || true
     say "Removed the audio settings of this script."
 }
 
-apply() {   # index
-    line="$(candidates | sed -n "${1}p")"
-    [ -n "$line" ] || { say "audiosetup: there is no candidate $1"; return 1; }
-    set -- $line
-    card=$1; dev=$2; tdm=$3; letter=$4
-    route "$card" "$dev" "$tdm" "$letter" "$VOLUME"
-    $SUDO alsactl store 2>/dev/null || true
+# Write everything that makes the saved choice come back at every boot. Safe to run again (the installer does after an upgrade).
+install_boot() {
+    load_conf || { say "audiosetup: no saved choice in $CONF."; return 1; }
+    SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+    case "$SELF" in
+        */lib/poniaemu/audiosetup.sh) ;;
+        *) $SUDO mkdir -p /usr/local/lib/poniaemu /usr/local/bin
+           $SUDO cp "$SELF" /usr/local/lib/poniaemu/audiosetup.sh && $SUDO chmod 755 /usr/local/lib/poniaemu/audiosetup.sh
+           $SUDO ln -sf /usr/local/lib/poniaemu/audiosetup.sh /usr/local/bin/audiosetup
+           SELF=/usr/local/lib/poniaemu/audiosetup.sh ;;
+    esac
 
     # ALSA default: through dmix, so PulseAudio (menus) and the player (games) can use the device at the same time.
     strip_block "$ASOUND"
@@ -232,34 +325,81 @@ pcm.ponia_hdmi {
     type dmix
     ipc_key 5978
     ipc_perm 0666
-    slave { pcm "hw:$card,$dev"  rate 48000  channels 2  format S16_LE  period_size 1024  buffer_size 8192 }
+    slave { pcm "hw:$CARD_ID,$DEVICE"  rate 48000  channels 2  format S16_LE  period_size 1024  buffer_size 8192 }
 }
 pcm.!default { type plug  slave.pcm "ponia_hdmi" }
-ctl.!default { type hw  card $card }
+ctl.!default { type hw  card $CARD_ID }
 EOF
         printf '%s\n' "$MARK_END"
     } | $SUDO tee -a "$ASOUND" >/dev/null
 
-    # PulseAudio (system mode on boards without a desktop): an output on top of the same ALSA default.
+    # The routing service runs before PulseAudio; it is harmless on boards that need no routing (it only waits for the card).
+    $SUDO tee "$ROUTE_UNIT" >/dev/null <<EOF
+[Unit]
+Description=PoniaEmu HDMI audio route
+After=sound.target alsa-restore.service alsa-state.service systemd-udev-settle.service
+Before=pulseaudio-system.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh $SELF --boot
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    $SUDO systemctl daemon-reload 2>/dev/null || true
+    $SUDO systemctl enable poniaemu-audio.service >/dev/null 2>&1 || true
+
+    # PulseAudio (system mode on boards without a desktop): the output is created from system.pa; the drop-in orders it after the route
+    # and adds a retry in case the output could not be created at start.
     if [ -f "$PULSE_SYSTEM" ]; then
         strip_block "$PULSE_SYSTEM"
         {
             printf '%s\n' "$MARK_BEGIN"
-            printf '%s\n' "load-module module-alsa-sink device=default sink_name=ponia_hdmi tsched=0"
+            printf '%s\n' "load-module module-alsa-sink device=ponia_hdmi sink_name=ponia_hdmi tsched=0"
             printf '%s\n' "set-default-sink ponia_hdmi"
             printf '%s\n' "$MARK_END"
         } | $SUDO tee -a "$PULSE_SYSTEM" >/dev/null
-        # At boot PulseAudio can start before the mixer routing is restored; then the HDMI output cannot be opened, only a null
-        # output remains, and the player (which prefers PulseAudio) plays into nothing. Start it after the sound state is restored,
-        # and restore it once more right before it starts.
         if command -v systemctl >/dev/null 2>&1 && [ -f /etc/systemd/system/pulseaudio-system.service ]; then
             $SUDO mkdir -p "$(dirname "$PULSE_DROPIN")"
-            printf '%s\n' "[Unit]" "After=sound.target alsa-restore.service alsa-state.service" "[Service]" \
-                "ExecStartPre=-/usr/sbin/alsactl restore" | $SUDO tee "$PULSE_DROPIN" >/dev/null
+            printf '%s\n' "[Unit]" "Wants=poniaemu-audio.service" "After=sound.target poniaemu-audio.service" "[Service]" \
+                "ExecStartPost=-/bin/sh $SELF --pulse-wait" | $SUDO tee "$PULSE_DROPIN" >/dev/null
             $SUDO systemctl daemon-reload 2>/dev/null || true
         fi
-        $SUDO systemctl restart pulseaudio-system.service 2>/dev/null || $SUDO systemctl restart pulseaudio 2>/dev/null || true
     fi
+}
+
+apply() {   # index
+    line="$(candidates | sed -n "${1}p")"
+    [ -n "$line" ] || { say "audiosetup: there is no candidate $1"; return 1; }
+    set -- $line
+    card=$1; dev=$2; tdm=$3; letter=$4
+    route "$card" "$dev" "$tdm" "$letter" "$VOLUME"
+    $SUDO alsactl store 2>/dev/null || true
+
+    # Save the choice by card NAME and set up what restores it at every boot (see install_boot).
+    cid="$(card_id_of "$card")"
+    [ -n "$cid" ] || { say "audiosetup: cannot find the name of card $card."; return 1; }
+    $SUDO mkdir -p "$CONF_DIR"
+    printf 'CARD_ID=%s\nDEVICE=%s\nTDM_INDEX=%s\nTDM_LETTER=%s\nSAVED_VOLUME=%s\n' "$cid" "$dev" "$tdm" "$letter" "$VOLUME" | $SUDO tee "$CONF" >/dev/null
+    install_boot || return 1
+    $SUDO systemctl restart poniaemu-audio.service 2>/dev/null || true
+    if [ -f "$PULSE_SYSTEM" ]; then
+        $SUDO systemctl restart pulseaudio-system.service 2>/dev/null || $SUDO systemctl restart pulseaudio 2>/dev/null || true
+        sleep 2
+        if command -v pactl >/dev/null 2>&1; then
+            pactl list short sinks 2>/dev/null | grep -q ponia_hdmi && say "PulseAudio output ponia_hdmi is up." \
+                || say "note: the PulseAudio output ponia_hdmi is not up yet; it is retried at every boot (journalctl -u pulseaudio-system)."
+        fi
+    fi
+    # Keep a record of what was detected and what the user picked: samples from different boards show later how far the detection can be trusted.
+    tv_state; tvs=$?
+    {
+        printf '%s model=[%s] picked=card%s/dev%s/tdm%s/%s taps=[%s] tv=%s candidates=[%s]\n' "$(date '+%F %T')" \
+            "$(tr -d '\0' < /proc/device-tree/model 2>/dev/null)" "$card" "$dev" "$tdm" "$letter" \
+            "$(dt_hdmi_taps | tr '\n' ',')" "$tvs" "$(candidates | tr '\n' ';')"
+    } | $SUDO tee -a /var/log/poniaemu-audiosetup.log >/dev/null 2>&1 || true
     say "HDMI audio set to card $card, device $dev${letter:+ (I2S $letter)} at ${VOLUME}%."
 }
 
@@ -273,12 +413,16 @@ case "${1:-}" in
     --test) run_tests "${2:-0}" ;;
     --apply) [ -n "${2:-}" ] || { say "usage: $0 --apply N"; exit 2; }; apply "$2" ;;
     --reset) reset ;;
+    --boot) boot_route ;;                 # used by poniaemu-audio.service at every boot
+    --pulse-wait) pulse_wait ;;           # used by pulseaudio-system.service after it started
+    --reinstall) install_boot ;;          # rewrite the boot files from the saved choice (the installer does this after an upgrade)
     "")
         count="$(candidates | wc -l)"
         [ "$count" -gt 0 ] || { say "audiosetup: no sound device found."; exit 1; }
         [ -r /dev/tty ] && [ -w /dev/tty ] || { say "audiosetup: no terminal to ask on; use --test and --apply N."; exit 1; }
         say "HDMI audio setup: $count candidate(s). Turn the TV on, select the HDMI input and set a normal volume."
         say "Stop any running game first: the test uses the sound device and changes the HDMI route."
+        tv_warn
         printf 'Press Enter to start the beeps (s = skip this setup): ' >/dev/tty
         read -r ready </dev/tty || exit 1
         [ "$ready" = s ] && { say "Skipped. You can run it later with: audiosetup"; exit 0; }
@@ -297,5 +441,5 @@ case "${1:-}" in
             esac
         done
         ;;
-    *) say "usage: $0 [--list | --test [N] | --apply N | --reset]"; exit 2 ;;
+    *) say "usage: $0 [--list | --test [N] | --apply N | --reset | --reinstall]"; exit 2 ;;
 esac

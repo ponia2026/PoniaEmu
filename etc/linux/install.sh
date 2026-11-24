@@ -255,6 +255,11 @@ if [ "$AS" != 0 ] && [ "${DRY_RUN:-0}" != 1 ]; then
     if curl -fsSL "https://raw.githubusercontent.com/$REPO/qt6/etc/linux/audiosetup.sh" | $SUDO tee "$PREFIX/lib/poniaemu/audiosetup.sh" >/dev/null; then
         $SUDO ln -sf "$PREFIX/lib/poniaemu/audiosetup.sh" "$PREFIX/bin/audiosetup"
         $SUDO chmod 755 "$PREFIX/lib/poniaemu/audiosetup.sh"
+        # After an upgrade, a choice made earlier is kept: only its boot files are brought in line with this version (no beeps, no questions).
+        if [ -f /etc/poniaemu/audio.conf ]; then
+            $SUDO sh "$PREFIX/lib/poniaemu/audiosetup.sh" --reinstall || say "note: the saved HDMI sound choice could not be re-applied; run audiosetup again."
+            [ "$AS" = auto ] && AS=0
+        fi
         if [ "$AS" = auto ]; then
             if ( : </dev/tty ) 2>/dev/null && ! systemctl is-active --quiet display-manager.service 2>/dev/null; then AS=1; else AS=0; fi
         fi
@@ -262,7 +267,7 @@ if [ "$AS" != 0 ] && [ "${DRY_RUN:-0}" != 1 ]; then
             say ""
             say "HDMI sound setup (you can skip it and run it later with: audiosetup)"
             $SUDO sh "$PREFIX/lib/poniaemu/audiosetup.sh" || say "note: the HDMI sound setup did not finish; run audiosetup again later."
-        else
+        elif [ ! -f /etc/poniaemu/audio.conf ]; then
             say "To set up the HDMI sound later, run: audiosetup"
         fi
     else
