@@ -26,7 +26,7 @@ Libretro 核心（`.so` 文件）。两者合在一起就是一个独立的应�
 | 任天堂 FC / Famicom | FCEUmm | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Game Boy / Game Boy Color | Gambatte | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Game Boy Advance | mGBA | ✔ | ✔ | ✔ | ✔ | ✔ |
-| 任天堂 DS | melonDS | melonDS DS | ✔ | melonDS DS | DeSmuME 2015 | melonDS DS |
+| 任天堂 DS | melonDS DS | ✔ | melonDS | ✔ | DeSmuME 2015 | ✔ |
 | 超级任天堂 / Super Famicom | Snes9x | ✔ | ✔ | ✔ | ✔ | ✔ |
 | 任天堂 64 | Mupen64Plus-Next | ✔ | ✔ | ✔ | — | ✔ |
 | 任天堂 GameCube | Dolphin | ✔ | — | ✔ | — | ✔ |

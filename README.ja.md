@@ -26,7 +26,7 @@ PoniaEmu は [Pegasus Frontend](https://github.com/mmatyas/pegasus-frontend) を
 | ファミリーコンピュータ / NES | FCEUmm | ✔ | ✔ | ✔ | ✔ | ✔ |
 | ゲームボーイ / ゲームボーイカラー | Gambatte | ✔ | ✔ | ✔ | ✔ | ✔ |
 | ゲームボーイアドバンス | mGBA | ✔ | ✔ | ✔ | ✔ | ✔ |
-| ニンテンドーDS | melonDS | melonDS DS | ✔ | melonDS DS | DeSmuME 2015 | melonDS DS |
+| ニンテンドーDS | melonDS DS | ✔ | melonDS | ✔ | DeSmuME 2015 | ✔ |
 | スーパーファミコン / SNES | Snes9x | ✔ | ✔ | ✔ | ✔ | ✔ |
 | NINTENDO64 | Mupen64Plus-Next | ✔ | ✔ | ✔ | — | ✔ |
 | ニンテンドーゲームキューブ | Dolphin | ✔ | — | ✔ | — | ✔ |

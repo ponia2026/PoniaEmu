@@ -26,7 +26,7 @@ L'interface est disponible en neuf langues : English, 简体中文, 繁體中文
 | Nintendo Entertainment System / Famicom | FCEUmm | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Game Boy / Game Boy Color | Gambatte | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Game Boy Advance | mGBA | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Nintendo DS | melonDS | melonDS DS | ✔ | melonDS DS | DeSmuME 2015 | melonDS DS |
+| Nintendo DS | melonDS DS | ✔ | melonDS | ✔ | DeSmuME 2015 | ✔ |
 | Super Nintendo / Super Famicom | Snes9x | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Nintendo 64 | Mupen64Plus-Next | ✔ | ✔ | ✔ | — | ✔ |
 | Nintendo GameCube | Dolphin | ✔ | — | ✔ | — | ✔ |
