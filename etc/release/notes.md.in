@@ -15,7 +15,25 @@ for the supported systems, setup and build instructions.
 | `PoniaEmu_@TAG@-@STAMP@_linux-armhf.tar.gz` | Linux, ARM 32-bit |
 | `SHA256SUMS.txt` | Checksums of all files above |
 
-### Install on Android (with adb)
+### Install on Android (directly on the device, no PC, no root, no adb)
+
+A phone, tablet or TV box can install the APK by itself:
+
+1. On the device, open this page in its web browser and download the `.apk` file that fits it (see below for how to choose).
+   Or download it on a PC and copy it to the device with a USB stick, then open it from the device's file manager.
+2. Open the downloaded file. The first time, Android asks to allow installing apps from this source
+   (the browser or the file manager): allow it, go back and open the file again.
+3. Tap **Install**, then **Open**. If Play Protect warns that the app is unknown, choose **Install anyway**:
+   the APK is not distributed through Google Play. Check `SHA256SUMS.txt` if you want to verify the download.
+
+Which file? Almost every phone and TV box made since 2017 is 64-bit: use `_v8a`. Older or low-cost devices can be
+32-bit: use `_v7a`. If unsure, try `_v8a` first; a 32-bit device refuses it with "App not installed" and nothing is changed.
+You can also find out in **Settings → About** (a "64-bit" or "arm64" mention), or with the adb command below.
+
+To update, install the newer APK over the old one (settings and saves are kept). If Android refuses it, an earlier test
+build signed with a different key is installed: uninstall PoniaEmu first, which also deletes its settings.
+
+### Install on Android (from a PC, with adb)
 
 Not sure which APK you need? Ask the device:
 
@@ -57,7 +75,8 @@ On a box **without a desktop** (a TV box or a small board) the script also:
 
 - installs a sound server (PulseAudio, as a system-wide service) so the menus have sound;
 - mounts every disk that is not the system disk under `/media/<label>` when it is plugged in and at boot
-  (`AUTOMOUNT=0` skips this; on a desktop it is skipped by itself because the desktop mounts disks);
+  (`AUTOMOUNT=0` skips this; on a desktop it is skipped by itself because the desktop mounts disks;
+  remove it later with `sudo sh /usr/local/lib/poniaemu/uninstall-automount`);
 - sets the HDMI output level to 80% on Amlogic boards (`HDMI_VOLUME=N` changes it, `0` leaves it alone).
 
 On a console without a desktop, `poniaemu` picks the connected screen output (HDMI first) by itself.

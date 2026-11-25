@@ -41,6 +41,18 @@ public class PlayerActivity extends org.libsdl.app.SDLActivity {
         return out.toArray(new String[0]);
     }
 
+    // Stick, trigger and D-pad (hat) movement of a gamepad is handed to SDL here: on some devices the view that would normally forward it
+    // never receives it, and then the player only sees the buttons.
+    @Override
+    public boolean dispatchGenericMotionEvent(android.view.MotionEvent event) {
+        if ((event.getSource() & android.view.InputDevice.SOURCE_JOYSTICK) != 0
+            && event.getAction() == android.view.MotionEvent.ACTION_MOVE
+            && org.libsdl.app.SDLControllerManager.isDeviceSDLJoystick(event.getDeviceId())
+            && org.libsdl.app.SDLControllerManager.handleJoystickMotionEvent(event))
+            return true;
+        return super.dispatchGenericMotionEvent(event);
+    }
+
     // ponia_play() keeps global state and may run once per process: end the :player process with the activity.
     @Override
     protected void onDestroy() {

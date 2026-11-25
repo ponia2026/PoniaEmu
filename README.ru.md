@@ -26,7 +26,7 @@ PoniaEmu — это изменённая версия [Pegasus Frontend](https:/
 | Nintendo Entertainment System / Famicom | FCEUmm | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Game Boy / Game Boy Color | Gambatte | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Game Boy Advance | mGBA | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Nintendo DS | melonDS | ✔ | ✔ | ✔ | DeSmuME 2015 | ✔ |
+| Nintendo DS | melonDS | melonDS DS | ✔ | melonDS DS | DeSmuME 2015 | melonDS DS |
 | Super Nintendo / Super Famicom | Snes9x | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Nintendo 64 | Mupen64Plus-Next | ✔ | ✔ | ✔ | — | ✔ |
 | Nintendo GameCube | Dolphin | ✔ | — | ✔ | — | ✔ |

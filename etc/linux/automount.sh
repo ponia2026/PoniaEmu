@@ -5,7 +5,8 @@
 # Automount for Linux boxes without a desktop (nobody else mounts USB/SATA/NVMe disks there).
 #
 #   curl -fsSL https://raw.githubusercontent.com/ponia2026/PoniaEmu/qt6/etc/linux/automount.sh | sh
-#   sh automount.sh --uninstall
+#   sudo sh /usr/local/lib/poniaemu/uninstall-automount        (written by the installation)
+#   curl -fsSL https://raw.githubusercontent.com/ponia2026/PoniaEmu/qt6/etc/linux/automount.sh | sudo sh -s -- --uninstall
 #
 # Every partition with a known filesystem that is NOT on the disk holding the running system is mounted
 # under /media/<label> as soon as it appears (and again at boot), and unmounted when the disk is removed.
@@ -18,6 +19,7 @@ set -eu
 RULE=/etc/udev/rules.d/99-poniaemu-automount.rules
 UNIT=/etc/systemd/system/poniaemu-mount@.service
 HELPER=/usr/local/lib/poniaemu/mount-disk
+UNINSTALLER=/usr/local/lib/poniaemu/uninstall-automount
 
 SUDO=""
 if [ "$(id -u)" -ne 0 ]; then
@@ -30,7 +32,7 @@ if [ "${1:-}" = "--uninstall" ]; then
     for u in $(systemctl list-units --plain --no-legend 'poniaemu-mount@*' 2>/dev/null | awk '{print $1}'); do
         $SUDO systemctl stop "$u" || true
     done
-    $SUDO rm -f "$RULE" "$UNIT" "$HELPER"
+    $SUDO rm -f "$RULE" "$UNIT" "$HELPER" "$UNINSTALLER"
     $SUDO rmdir /usr/local/lib/poniaemu 2>/dev/null || true
     $SUDO systemctl daemon-reload
     $SUDO udevadm control --reload
@@ -129,6 +131,23 @@ exit 0
 HELPER_EOF
 $SUDO chmod 755 "$HELPER"
 
+# ---- the uninstaller (this script usually runs from a pipe, so it cannot be kept as a file itself) ----
+$SUDO tee "$UNINSTALLER" >/dev/null <<'UNINSTALL_EOF'
+#!/bin/sh
+# Removes the PoniaEmu automount. Disks that are mounted by it are unmounted.
+[ "$(id -u)" -eq 0 ] || { echo "Please run as root: sudo sh $0" >&2; exit 1; }
+for u in $(systemctl list-units --plain --no-legend 'poniaemu-mount@*' 2>/dev/null | awk '{print $1}'); do
+    systemctl stop "$u" || true
+done
+rm -f /etc/udev/rules.d/99-poniaemu-automount.rules /etc/systemd/system/poniaemu-mount@.service \
+      /usr/local/lib/poniaemu/mount-disk /usr/local/lib/poniaemu/uninstall-automount
+rmdir /usr/local/lib/poniaemu 2>/dev/null || true
+systemctl daemon-reload
+udevadm control --reload
+echo "Automount removed. Disks that are mounted now were unmounted."
+UNINSTALL_EOF
+$SUDO chmod 755 "$UNINSTALLER"
+
 # ---- the systemd unit -------------------------------------------------------------------------
 $SUDO tee "$UNIT" >/dev/null <<'UNIT_EOF'
 [Unit]
@@ -167,4 +186,4 @@ done
 
 echo "Automount installed. Disks outside the system disk are mounted under /media/<label>:"
 findmnt -rn -o TARGET,SOURCE,FSTYPE | awk '$1 ~ "^/media/"' || true
-echo "Remove it again with:  sh automount.sh --uninstall"
+echo "Remove it again with:  sudo sh $UNINSTALLER"

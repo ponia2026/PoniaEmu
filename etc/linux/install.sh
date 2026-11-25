@@ -196,7 +196,7 @@ if [ "$AM" = auto ]; then
     if command -v systemctl >/dev/null 2>&1 && ! systemctl is-active --quiet display-manager.service 2>/dev/null; then AM=1; else AM=0; fi
 fi
 if [ "$AM" = 1 ] && command -v systemctl >/dev/null 2>&1; then
-    say "Installing the automount for external disks (remove it with: sh automount.sh --uninstall) ..."
+    say "Installing the automount for external disks (remove it later with: sudo sh /usr/local/lib/poniaemu/uninstall-automount) ..."
     curl -fsSL "https://raw.githubusercontent.com/$REPO/qt6/etc/linux/automount.sh" | $SUDO sh || say "note: the automount could not be installed, skipping."
 fi
 

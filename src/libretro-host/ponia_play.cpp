@@ -222,6 +222,7 @@ struct Frontend {
     int zc_loc_tex = -1, zc_loc_sharp = -1, zc_loc_texel = -1, zc_loc_win = -1, zc_loc_sb = -1;
     float sharpen = 0.f;   // --sharpen: 0 = off; ~0.3..0.8 = edge sharpening applied by the present shader (zero-copy path only)
     unsigned hud_tex = 0, menu_tex = 0; int hud_tw = 0, hud_th = 0, menu_tw = 0, menu_th = 0;   // overlay textures (size as allocated on the GPU)
+    unsigned cur_tex = 0;   // 1x1 white texel for the virtual cursor (zero-copy path)
     SDL_Surface* hud_surf = nullptr; SDL_Renderer* hud_ren = nullptr;      // overlays are painted on the CPU with SDL's software renderer
     SDL_Surface* menu_surf = nullptr; SDL_Renderer* menu_ren = nullptr;    // and uploaded only when their content changes
     std::string hud_key; int hud_x = 0, hud_wpx = 0, hud_hpx = 0; long long menu_key = -1;
@@ -232,6 +233,15 @@ struct Frontend {
     bool last_hw = false;
     int16_t axis[4] = {0, 0, 0, 0};   // left X/Y, right X/Y (libretro analog, -32768..32767)
     bool analog_used = false;          // the core reads RETRO_DEVICE_ANALOG: then the left stick is not also a D-pad
+    int16_t ptr_x = 0, ptr_y = 0;      // RETRO_DEVICE_POINTER position over the displayed picture (-32767..32767); a mouse or a touch screen drives it
+    bool ptr_down = false;             // left mouse button / finger down
+    bool ptr_inside = false;           // the pointer is over the picture
+    bool layout_h = false;             // NDS screen layout currently side by side (R3 toggles it for the cores that have no hotkey of their own)
+    bool vcursor = false;              // NDS cores that only read RETRO_DEVICE_POINTER (melonds, desmume2015): the player makes the pointer from the left stick and draws a cursor
+    float vcx = 0.f, vcy = 0.5f;       // virtual cursor over the picture, -1..1 (starts in the middle of the lower screen)
+    bool vc_active = false;            // the virtual cursor (not the mouse) owns the pointer
+    int last_mx = -1, last_my = -1;    // last mouse position, to notice the mouse moving
+    bool cursor_on_left = false;      // melondsds: the left stick drives the touch cursor (the core reads the right one) and the south face button clicks (= its R2)
     unsigned latch = 0;          // RetroPad bits pressed since the last poll (a tap shorter than one poll interval must still reach the core)
     bool debug_input = false;    // --debug-input: log what SDL delivers and what the core asks for
     bool no_ffrew = false;       // Dolphin: fast-forward / rewind disabled (freezes on some devices)
@@ -341,7 +351,7 @@ typedef char GLchar_t; typedef float GLfloat_t; typedef ptrdiff_t GLsizeiptr_t; 
 const GLenum_t VERTEX_SHADER = 0x8B31, FRAGMENT_SHADER = 0x8B30, COMPILE_STATUS = 0x8B81, LINK_STATUS = 0x8B82,
                ARRAY_BUFFER = 0x8892, STREAM_DRAW = 0x88E0, FLOAT = 0x1406, TRIANGLE_STRIP = 5, COLOR_BUFFER_BIT = 0x4000,
                BLEND = 0x0BE2, DEPTH_TEST = 0x0B71, SCISSOR_TEST = 0x0C11, CULL_FACE = 0x0B44, STENCIL_TEST = 0x0B90,
-               ONE = 1, ONE_MINUS_SRC_ALPHA = 0x0303, TEXTURE0 = 0x84C0, LINEAR = 0x2601, TEXTURE_WRAP_S = 0x2802,
+               ZERO = 0, ONE = 1, ONE_MINUS_SRC_ALPHA = 0x0303, ONE_MINUS_DST_COLOR = 0x0307, TEXTURE0 = 0x84C0, LINEAR = 0x2601, TEXTURE_WRAP_S = 0x2802,
                TEXTURE_WRAP_T = 0x2803, CLAMP_TO_EDGE = 0x812F;
 struct Zc {
     GLuint_t (*CreateShader)(GLenum_t) = nullptr;
@@ -975,6 +985,12 @@ void zc_overlay_upload(unsigned& tex, int& tw, int& th, SDL_Surface* s) {
     else gl::zc.TexSubImage2D(gl::TEXTURE_2D, 0, 0, 0, s->w, s->h, gl::RGBA, gl::UNSIGNED_BYTE, s->pixels);
 }
 
+// side in output pixels of the virtual cursor: 4 pixels of the core's frame, so it scales with the picture like melonDS DS's own cursor
+int cursor_side(int shown_h, unsigned frame_h) {
+    const int s = frame_h ? (int)(4.f * (float)shown_h / (float)frame_h + 0.5f) : 6;
+    return s < 4 ? 4 : s;
+}
+
 void present_zc() {
     int ow = 0, oh = 0; SDL_GL_GetDrawableSize(F.win, &ow, &oh);
     if (ow <= 0 || oh <= 0 || !F.zc_w || !F.zc_h || !F.hw_tex) return;
@@ -1054,6 +1070,24 @@ void present_zc() {
         }
         if (F.hud_tex && F.hud_key == key) { g.BindTexture(gl::TEXTURE_2D, F.hud_tex); zc_draw_rect(ow, oh, ow - F.hud_wpx, 0, F.hud_wpx, F.hud_hpx); }
     } else F.hud_key.clear();
+    if (F.vcursor && F.vc_active && rot == 0 && !F.menu) {   // same cross as the SDL path, painted once into a small texture
+        const int side = cursor_side(dh, F.zc_h);   // solid square that inverts what is under it, like melonDS DS's own cursor
+        if (!F.cur_tex) {   // a 1x1 white texel; the blend function turns it into "1 - destination"
+            const uint8_t white[4] = {255, 255, 255, 255};
+            g.GenTextures(1, &F.cur_tex); g.BindTexture(gl::TEXTURE_2D, F.cur_tex);
+            g.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, (int)gl::NEAREST); g.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, (int)gl::NEAREST);
+            g.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, (int)gl::CLAMP_TO_EDGE); g.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, (int)gl::CLAMP_TO_EDGE);
+            g.PixelStorei(0x0CF5 /*UNPACK_ALIGNMENT*/, 1);
+            g.TexImage2D(gl::TEXTURE_2D, 0, (int)gl::RGBA, 1, 1, 0, gl::RGBA, gl::UNSIGNED_BYTE, white);
+        }
+        const int cxp = (ow - dw) / 2 + (int)((F.vcx * 0.5f + 0.5f) * dw), cyp = (oh - dh) / 2 + (int)((F.vcy * 0.5f + 0.5f) * dh);
+        g.BindTexture(gl::TEXTURE_2D, F.cur_tex);
+        z.BlendFunc(gl::ONE_MINUS_DST_COLOR, gl::ZERO);
+        z.ColorMask(1, 1, 1, 0);
+        zc_draw_rect(ow, oh, cxp - side / 2, cyp - side / 2, side, side);
+        z.ColorMask(1, 1, 1, 1);
+        z.BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
+    }
     if (F.menu) {
         const long long key = (long long)F.menu_sel | (F.show_fps ? 0x10LL : 0LL) | ((long long)ow << 8) | ((long long)oh << 28);
         if (key != F.menu_key) {
@@ -1123,6 +1157,18 @@ void present() {
         const int rw = (rot & 1) ? dh : dw, rh = (rot & 1) ? dw : dh;
         SDL_Rect dst{(ow - rw) / 2, (oh - rh) / 2, rw, rh};
         SDL_RenderCopyEx(F.ren, F.tex, nullptr, &dst, -90.0 * rot, nullptr, SDL_FLIP_NONE);
+    }
+    if (F.vcursor && F.vc_active && rot == 0 && !F.menu) {   // the core draws no cursor of its own: a small cross, white with a black outline
+        const int cxp = (ow - dw) / 2 + (int)((F.vcx * 0.5f + 0.5f) * dw), cyp = (oh - dh) / 2 + (int)((F.vcy * 0.5f + 0.5f) * dh);
+        // a small solid square that inverts the picture under it (dark on light, light on dark): 4 core pixels wide, scaled with the picture
+        const int side = cursor_side(dh, F.tex_h);
+        static const SDL_BlendMode invert = SDL_ComposeCustomBlendMode(SDL_BLENDFACTOR_ONE_MINUS_DST_COLOR, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD,
+                                                                       SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
+        SDL_SetRenderDrawBlendMode(F.ren, invert);
+        SDL_SetRenderDrawColor(F.ren, 255, 255, 255, 255);
+        const SDL_Rect sq{cxp - side / 2, cyp - side / 2, side, side};
+        SDL_RenderFillRect(F.ren, &sq);
+        SDL_SetRenderDrawBlendMode(F.ren, SDL_BLENDMODE_NONE);
     }
     draw_hud(ow, oh);
     if (F.menu) draw_menu(ow, oh);
@@ -1250,15 +1296,30 @@ static bool pad_is_remote(const char* name) {
     return false;
 }
 
+// A name that says "this is a game pad". Wireless air-mouse remotes also register as game controllers, so among the devices that are
+// not obviously remotes, one with such a name wins over an unnamed one.
+static bool pad_looks_like_gamepad(const char* name) {
+    std::string n = name ? name : "";
+    for (auto& c : n) c = (char)std::tolower((unsigned char)c);
+    for (const char* w : { "x-box", "xbox", "gamepad", "controller", "joystick", "dualshock", "dualsense", "wireless controller", "8bitdo", "pro controller" })
+        if (n.find(w) != std::string::npos) return true;
+    return false;
+}
+
 void open_pad() {
-    int best = -1, fallback = -1;   // best = a real gamepad, fallback = a remote (used only when nothing better exists)
+    int best = -1, named = -1, fallback = -1;   // named = a device called a game pad, best = any other non-remote, fallback = a remote (only when nothing better exists)
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
         if (!SDL_IsGameController(i)) continue;
-        if (pad_is_remote(SDL_GameControllerNameForIndex(i))) { if (fallback < 0) fallback = i; }
-        else { best = i; break; }
+        const char* nm = SDL_GameControllerNameForIndex(i);
+        if (pad_is_remote(nm)) { if (fallback < 0) fallback = i; }
+        else if (pad_looks_like_gamepad(nm)) { named = i; break; }
+        else if (best < 0) best = i;
     }
-    if (F.pad) {   // already open: only swap a remote for a real gamepad that showed up later
-        if (best < 0 || !pad_is_remote(SDL_GameControllerName(F.pad))) return;
+    if (named >= 0) best = named;
+    if (F.pad) {   // already open: only swap a remote (or an unnamed device) for a real gamepad that showed up later
+        const char* cur = SDL_GameControllerName(F.pad);
+        const bool cur_weak = pad_is_remote(cur) || (named >= 0 && !pad_looks_like_gamepad(cur));
+        if (best < 0 || !cur_weak) return;
         SDL_GameControllerClose(F.pad); F.pad = nullptr;
     }
     const int pick = best >= 0 ? best : fallback;
@@ -1309,6 +1370,15 @@ void cycle_resolution() {
     std::snprintf(b, sizeof b, "RES %dX", next); osd_show(b);
 }
 
+// NDS: R3 switches the two screens between stacked and side by side (melondsds does it by itself; melonds and desmume2015 only through their option)
+void cycle_nds_layout() {
+    const bool desm = F.core_name.find("desmume") != std::string::npos;
+    F.layout_h = !F.layout_h;
+    F.opt_user[desm ? "desmume_screens_layout" : "melonds_screen_layout"] = desm ? (F.layout_h ? "left/right" : "top/bottom") : (F.layout_h ? "Left/Right" : "Top/Bottom");
+    F.var_update = true;
+    osd_show(F.layout_h ? "SIDE BY SIDE" : "STACKED");
+}
+
 void hotkey_combo(SDL_GameControllerButton b) {
     F.hotkey_used = true;
     switch (b) {
@@ -1342,6 +1412,7 @@ void poll_input() {
             break;
         case SDL_CONTROLLERBUTTONDOWN:
             for (auto& b : MAP) if (b.sdl == e.cbutton.button) F.latch |= 1u << b.rb;
+            if (F.vcursor && !F.menu && !F.hotkey_held && e.cbutton.button == SDL_CONTROLLER_BUTTON_RIGHTSTICK) cycle_nds_layout();
             if (F.menu) {   // menu navigation: D-pad = move, bottom button (A) = confirm, right button (B) / Start = close
                 switch (e.cbutton.button) {
                 case SDL_CONTROLLER_BUTTON_DPAD_UP: menu_move(-1); break;
@@ -1393,7 +1464,7 @@ void poll_input() {
         for (auto& b : MAP) if (SDL_GameControllerGetButton(F.pad, b.sdl)) m |= 1u << b.rb;
         const int T = 16000;   // left stick as D-pad (only for cores that do not read the analog stick themselves)
         int ax = SDL_GameControllerGetAxis(F.pad, SDL_CONTROLLER_AXIS_LEFTX), ay = SDL_GameControllerGetAxis(F.pad, SDL_CONTROLLER_AXIS_LEFTY);
-        if (!F.analog_used) {
+        if (!F.analog_used && !F.vcursor) {
             if (ax < -T) m |= 1u << RETRO_DEVICE_ID_JOYPAD_LEFT; if (ax > T) m |= 1u << RETRO_DEVICE_ID_JOYPAD_RIGHT;
             if (ay < -T) m |= 1u << RETRO_DEVICE_ID_JOYPAD_UP;   if (ay > T) m |= 1u << RETRO_DEVICE_ID_JOYPAD_DOWN;
         }
@@ -1403,6 +1474,17 @@ void poll_input() {
         F.axis[0] = (int16_t)ax; F.axis[1] = (int16_t)ay;
         F.axis[2] = (int16_t)SDL_GameControllerGetAxis(F.pad, SDL_CONTROLLER_AXIS_RIGHTX);
         F.axis[3] = (int16_t)SDL_GameControllerGetAxis(F.pad, SDL_CONTROLLER_AXIS_RIGHTY);
+        if (F.debug_input) {
+            static int la = 0, lb = 0, lc = 0, ld = 0;
+            if (std::abs(ax - la) > 3000 || std::abs(ay - lb) > 3000 || std::abs(F.axis[2] - lc) > 3000 || std::abs(F.axis[3] - ld) > 3000) {
+                la = ax; lb = ay; lc = F.axis[2]; ld = F.axis[3];
+                plog("input: axes L %d,%d  R %d,%d  cursor_on_left=%d vcursor=%d\n", ax, ay, (int)F.axis[2], (int)F.axis[3], (int)F.cursor_on_left, (int)F.vcursor);
+            }
+        }
+        if (F.cursor_on_left) {   // NDS touch cursor: left stick moves it, the east button (by position, not label) clicks; R2 still clicks too
+            F.axis[2] = F.axis[0]; F.axis[3] = F.axis[1]; F.axis[0] = F.axis[1] = 0;
+            if (SDL_GameControllerGetButton(F.pad, SDL_CONTROLLER_BUTTON_B)) m |= 1u << RETRO_DEVICE_ID_JOYPAD_R2;   // east button; the south one stays a plain game button
+        }
     }
     if (!F.hotkey_held) {
         const Uint8* ks = SDL_GetKeyboardState(nullptr);
@@ -1418,6 +1500,47 @@ void poll_input() {
         if (ks) for (auto& k : KM) if (ks[k.sc]) m |= 1u << k.rb;
     }
     if (F.select_pulse > 0) { m |= 1u << RETRO_DEVICE_ID_JOYPAD_SELECT; }
+    {   // mouse / touch screen -> libretro pointer, mapped onto the letterboxed picture (same rectangle as present())
+        int wx = 0, wy = 0; const Uint32 mb = SDL_GetMouseState(&wx, &wy);
+        int ww = 0, wh = 0, ow = 0, oh = 0;
+        SDL_GetWindowSize(F.win, &ww, &wh); SDL_GL_GetDrawableSize(F.win, &ow, &oh);
+        const unsigned rot = F.rotation & 3;
+        float asp = F.aspect > 0 ? F.aspect : (F.zc ? (F.zc_h ? (float)F.zc_w / (float)F.zc_h : 0.f) : (F.tex_h ? (float)F.tex_w / (float)F.tex_h : 0.f));
+        if (ww > 0 && wh > 0 && ow > 0 && oh > 0 && asp > 0.f && rot == 0) {
+            const float px = wx * (float)ow / (float)ww, py = wy * (float)oh / (float)wh;
+            int dh = oh, dw = (int)(oh * asp);
+            if (dw > ow) { dw = ow; dh = (int)(ow / asp); }
+            const float x0 = (ow - dw) * 0.5f, y0 = (oh - dh) * 0.5f;
+            float nx = (px - x0) / (float)dw, ny = (py - y0) / (float)dh;   // 0..1 across the picture
+            F.ptr_inside = nx >= 0.f && nx <= 1.f && ny >= 0.f && ny <= 1.f;
+            nx = nx < 0.f ? 0.f : (nx > 1.f ? 1.f : nx); ny = ny < 0.f ? 0.f : (ny > 1.f ? 1.f : ny);
+            F.ptr_x = (int16_t)((nx * 2.f - 1.f) * 32767.f); F.ptr_y = (int16_t)((ny * 2.f - 1.f) * 32767.f);
+        } else F.ptr_inside = false;
+        F.ptr_down = !F.menu && !F.hotkey_held && F.ptr_inside && (mb & SDL_BUTTON(SDL_BUTTON_LEFT));
+        if (F.vcursor) {   // left stick moves the cursor, east button / R2 click; a moving mouse takes the pointer back
+            const bool mouse_moved = wx != F.last_mx || wy != F.last_my || (mb & SDL_BUTTON(SDL_BUTTON_LEFT));
+            const bool had_mouse = F.last_mx >= 0;
+            F.last_mx = wx; F.last_my = wy;
+            bool click = false; float sx = 0.f, sy = 0.f;
+            if (F.pad && !F.hotkey_held && !F.menu) {
+                const int DZ = 6000;
+                int ax = SDL_GameControllerGetAxis(F.pad, SDL_CONTROLLER_AXIS_LEFTX), ay = SDL_GameControllerGetAxis(F.pad, SDL_CONTROLLER_AXIS_LEFTY);
+                if (ax > DZ || ax < -DZ) sx = (float)ax / 32768.f;
+                if (ay > DZ || ay < -DZ) sy = (float)ay / 32768.f;
+                click = SDL_GameControllerGetButton(F.pad, SDL_CONTROLLER_BUTTON_B) || SDL_GameControllerGetAxis(F.pad, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 12000;
+            }
+            if (sx != 0.f || sy != 0.f || click) F.vc_active = true;
+            else if (mouse_moved && had_mouse) F.vc_active = false;
+            if (F.vc_active) {
+                const float speed = 0.035f;   // of the picture half-size per frame at full deflection
+                F.vcx += sx * speed; F.vcy += sy * speed;
+                F.vcx = F.vcx < -1.f ? -1.f : (F.vcx > 1.f ? 1.f : F.vcx); F.vcy = F.vcy < -1.f ? -1.f : (F.vcy > 1.f ? 1.f : F.vcy);
+                F.ptr_x = (int16_t)(F.vcx * 32767.f); F.ptr_y = (int16_t)(F.vcy * 32767.f);
+                F.ptr_inside = true; F.ptr_down = click;
+            }
+            F.axis[0] = F.axis[1] = 0;   // the core must not also move its own emulated pointer with the left stick
+        }
+    }
     if (F.menu) m = 0;
     if (!F.hotkey_held && !F.menu) m |= (uint16_t)F.latch;
     F.latch = 0;
@@ -1442,6 +1565,15 @@ int16_t input_state_cb(unsigned port, unsigned device, unsigned index, unsigned 
         F.analog_used = true;
         if (index > RETRO_DEVICE_INDEX_ANALOG_RIGHT || id > RETRO_DEVICE_ID_ANALOG_Y) return 0;
         return F.axis[index * 2 + id];
+    }
+    if (port == 0 && (device & RETRO_DEVICE_MASK) == RETRO_DEVICE_POINTER) {
+        if (index != 0) return 0;
+        switch (id) {
+            case RETRO_DEVICE_ID_POINTER_X: return F.ptr_x;
+            case RETRO_DEVICE_ID_POINTER_Y: return F.ptr_y;
+            case RETRO_DEVICE_ID_POINTER_PRESSED: return F.ptr_down ? 1 : 0;
+            default: return 0;
+        }
     }
     if (port != 0 || (device & RETRO_DEVICE_MASK) != RETRO_DEVICE_JOYPAD) return 0;
     if (id == RETRO_DEVICE_ID_JOYPAD_MASK) return (int16_t)F.pad_mask;
@@ -1583,9 +1715,18 @@ int ponia_play(int argc, char** argv) {
             // skip at most 1 frame, and only when the game falls behind (auto): keeps the speed and the sound steady on a small GPU
             {"ppsspp", "ppsspp_frameskip", "1"},
             {"ppsspp", "ppsspp_auto_frameskip", "enabled"},
+            // NDS: the ARM64 / x86-64 JIT is off by default; interpreting is about 2x slower and a small ARM board cannot keep up with it
+            {"melondsds", "melonds_jit_enable", "enabled"},
+            // the cursor is hidden by default in some builds of the core (first value of "Cursor Mode" = disabled): show it, and hide it again after a few idle seconds
+            {"melondsds", "melonds_show_cursor", "timeout"},
+            // the older NDS cores read the stylus from the mouse by default; the player hands them a pointer, so ask for touch mode
+            {"melonds_libretro", "melonds_touch_mode", "Touch"},
+            {"desmume", "desmume_pointer_type", "touch"},
         };
         size_t q0 = core_path.find_last_of("/\\");
         const std::string cn = core_path.substr(q0 == std::string::npos ? 0 : q0 + 1);
+        F.cursor_on_left = cn.find("melondsds") != std::string::npos;
+        F.vcursor = !F.cursor_on_left && (cn.find("melonds") != std::string::npos || cn.find("desmume") != std::string::npos);
         for (const auto& d : CORE_DEFAULTS)
             if (cn.find(d.core) != std::string::npos && !F.opt_user.count(d.key)) F.opt_user[d.key] = d.val;
 #if defined(__linux__) && !defined(__ANDROID__)

@@ -21,7 +21,8 @@ inline const CoreInfo* core_table(int& n) {
         {"fceumm", nullptr, "GPLv2", false, 441},
         {"gambatte", nullptr, "GPLv2", false, 424},
         {"mgba", nullptr, "MPLv2.0", false, 410},
-        {"melonds", nullptr, "GPLv3", false, 674},
+        {"melonds", nullptr, "GPLv3", false, 674},   // NDS on 32-bit Android (the buildbot core with no JIT)
+        {"melondsds", nullptr, "GPLv3", false, 1870},   // NDS on Linux 64-bit and 64-bit Android: has an ARM64 / x86-64 JIT, about 2x faster than melonds on a Cortex-A55
         {"desmume2015", nullptr, "GPLv2", false, 700},   // NDS replacement on targets where melonds has no JIT (32-bit ARM)
         {"snes9x", nullptr, "Non-commercial", true, 870},
         {"genesis_plus_gx", nullptr, "Non-commercial", true, 1107},
@@ -104,7 +105,7 @@ struct SystemCore { const char* sys; const char* core; };
 
 inline const SystemCore* system_table(int& n) {
     static const SystemCore T[] = {
-        {"fc", "fceumm"}, {"gb", "gambatte"}, {"gbc", "gambatte"}, {"gba", "mgba"}, {"nds", "melonds"},
+        {"fc", "fceumm"}, {"gb", "gambatte"}, {"gbc", "gambatte"}, {"gba", "mgba"}, {"nds", "melondsds"},
         {"sfc", "snes9x"}, {"genesis", "genesis_plus_gx"}, {"sms", "genesis_plus_gx"},
         {"pce", "mednafen_pce_fast"}, {"neogeo", "fbneo"}, {"cps1", "fbneo"}, {"cps2", "fbneo"}, {"fbneo", "fbneo"},
         {"mame", "mamearcade"}, {"n64", "mupen64plus_next"}, {"ps1", "pcsx_rearmed"}, {"dc", "flycast"},
@@ -129,6 +130,8 @@ inline const TargetRule* target_rules(int& n) {
         {Target::LinuxArm32, "gc",        "",              "no ARM32 JIT"},
         // 32-bit Android: Dolphin has no ARM32 JIT
         {Target::AndroidV7a, "gc",        "",              "no ARM32 JIT"},
+        // 64-bit Android uses melondsds (JIT, about 1.8x faster than melonds on a Cortex-A55); 32-bit Android has no JIT, so it keeps the smaller melonds
+        {Target::AndroidV7a, "nds",       "melonds",       "melondsds has no ARM32 JIT; the smaller melonds is enough"},
     };
     n = (int)(sizeof T / sizeof T[0]);
     return T;
