@@ -120,7 +120,7 @@ struct TargetRule { Target target; const char* sys; const char* core; const char
 
 inline const TargetRule* target_rules(int& n) {
     static const TargetRule T[] = {
-        // 32-bit ARM Linux. The reference is an RK3288 class board: systems that are not smooth there are not offered.
+        // 32-bit ARM Linux. The reference is a low-end quad-core Cortex-A17 class board: systems that are not smooth there are not offered.
         {Target::LinuxArm32, "nds",       "desmume2015",   "melonds has no ARM32 JIT; desmume2015 comes from PoniaCore"},
         {Target::LinuxArm32, "mame",      "mame2003_plus", "full MAME does not fit the 32-bit address space; mame2003_plus comes from the buildbot"},
         {Target::LinuxArm32, "n64",       "",              "not smooth enough; decide after testing on the reference board"},

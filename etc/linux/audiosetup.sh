@@ -97,7 +97,7 @@ candidates() {
                 done
                 [ -n "$good" ] && use="$good"
             fi
-            # Order: I2S B, then C, then A (then anything else). Measured on a G12A box (S905L3A): through I2S A the HDMI right channel is
+            # Order: I2S B, then C, then A (then anything else). Observed on some Amlogic G12A devices: through I2S A the HDMI right channel is
             # pure noise (the left channel is fine, so the beeps are still heard and every candidate looks like it works), through B and C
             # both channels are clean. B is the output the mainline kernel uses for HDMI.
             ordered=""

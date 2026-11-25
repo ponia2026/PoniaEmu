@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// 压缩包读取（zip / 7z）：列出、读取、挑档、解到目录、zip-slip 防护、损毁侦测。
+// Archive reading (zip / 7z): list, read, pick an entry, extract to a directory, zip-slip protection, corruption detection.
 
 #include <QtTest/QtTest>
 
@@ -112,7 +112,7 @@ void test_Archive::zip_limits_and_errors()
     std::vector<uint8_t> out;
     std::string err;
     QVERIFY(!ponia::archive_read(z.toStdString(), "nope.bin", out, err, 1 << 20));
-    QVERIFY(!ponia::archive_read(z.toStdString(), "game/rom.nes", out, err, 1000));   // 超过上限
+    QVERIFY(!ponia::archive_read(z.toStdString(), "game/rom.nes", out, err, 1000));   // over the size limit
     QVERIFY(!err.empty());
 }
 
@@ -120,12 +120,12 @@ void test_Archive::zip_corruption_is_detected()
 {
     QTemporaryDir tmp;
     std::vector<unsigned char> bad(kSampleZip, kSampleZip + kSampleZip_len);
-    // 1) 被截断（中央目录没了）
+    // 1) truncated (central directory missing)
     const QString cut = write_file(QDir(tmp.path()), "cut.zip", bad.data(), (unsigned)bad.size() / 2);
     std::vector<ponia::ArchiveEntry> e;
     std::string err;
     QVERIFY(!ponia::archive_list(cut.toStdString(), e, err));
-    // 2) stored 条目的内容被改一个位元组 -> CRC 不符
+    // 2) one byte of a stored entry changed -> CRC mismatch
     const std::vector<uint8_t> raw = expected_raw();
     size_t at = std::string::npos;
     for (size_t i = 0; i + raw.size() <= bad.size() && at == std::string::npos; ++i)
@@ -152,7 +152,7 @@ void test_Archive::sevenzip_list_and_read()
     QVERIFY(out == expected_rom());
     QVERIFY2(ponia::archive_read(s.toStdString(), "readme.txt", out, err, 1 << 20), err.c_str());
     QVERIFY(out == expected_readme());
-    QVERIFY(!ponia::archive_read(s.toStdString(), "rom.nes", out, err, 100));   // 超过上限
+    QVERIFY(!ponia::archive_read(s.toStdString(), "rom.nes", out, err, 100));   // over the size limit
     QVERIFY(!ponia::archive_read(s.toStdString(), "missing", out, err, 1 << 20));
 }
 
@@ -177,9 +177,9 @@ void test_Archive::extract_all_zip_and_7z()
     QVERIFY(rom7.open(QIODevice::ReadOnly));
     const QByteArray got = rom7.readAll();
     const std::vector<uint8_t> want = expected_rom();
-    QVERIFY(got.size() == (int)want.size() && std::memcmp(got.constData(), want.data(), want.size()) == 0);   // 注意：char 與 uint8_t 不能直接 std::equal
+    QVERIFY(got.size() == (int)want.size() && std::memcmp(got.constData(), want.data(), want.size()) == 0);   // note: char and uint8_t cannot be compared directly with std::equal
 
-    // 解压总量上限
+    // total extracted size limit
     QVERIFY(!ponia::archive_extract_all(z.toStdString(), d.filePath("out_small").toStdString(), err, 100));
 }
 
@@ -209,23 +209,23 @@ void test_Archive::pick_by_extension()
 {
     std::vector<ponia::ArchiveEntry> e(4);
     e[0].name = "readme.txt";
-    e[1].name = "game/rom.NES";   // 副档名不分大小写
+    e[1].name = "game/rom.NES";   // extension match is case-insensitive
     e[2].name = "raw.bin";
     e[3].name = "dir/"; e[3].is_dir = true;
     QCOMPARE(ponia::archive_pick(e, "nes|fds|unf"), 1);
     QCOMPARE(ponia::archive_pick(e, "bin"), 2);
-    QCOMPARE(ponia::archive_pick(e, nullptr), 0);          // 没有清单：第一个非目录
-    QCOMPARE(ponia::archive_pick(e, "xyz"), -1);           // 多个档案、都对不上
+    QCOMPARE(ponia::archive_pick(e, nullptr), 0);          // no hint list: first non-directory entry
+    QCOMPARE(ponia::archive_pick(e, "xyz"), -1);           // several files, none matches
     e.resize(1);
-    QCOMPARE(ponia::archive_pick(e, "xyz"), 0);            // 只有一个档案：交给核心试试
+    QCOMPARE(ponia::archive_pick(e, "xyz"), 0);            // only one file: let the core try it
 
     std::vector<ponia::ArchiveEntry> disc(3);
     disc[0].name = "game (Track 1).bin";
     disc[1].name = "game.cue";
     disc[2].name = "game.m3u";
-    QCOMPARE(ponia::archive_pick(disc, "bin|cue|m3u"), 2);   // m3u 优先
+    QCOMPARE(ponia::archive_pick(disc, "bin|cue|m3u"), 2);   // m3u first
     disc.pop_back();
-    QCOMPARE(ponia::archive_pick(disc, "bin|cue"), 1);       // 其次 cue（不选 .bin）
+    QCOMPARE(ponia::archive_pick(disc, "bin|cue"), 1);       // then cue (never .bin)
     QCOMPARE(ponia::archive_pick(std::vector<ponia::ArchiveEntry>(), "nes"), -1);
 }
 
@@ -239,7 +239,7 @@ void test_Archive::remove_tree_removes()
     f.close();
     QVERIFY(ponia::remove_tree(d.filePath("t").toStdString()));
     QVERIFY(!QFileInfo::exists(d.filePath("t")));
-    QVERIFY(ponia::remove_tree(d.filePath("never-existed").toStdString()));   // 不存在也算成功
+    QVERIFY(ponia::remove_tree(d.filePath("never-existed").toStdString()));   // a missing path counts as success
 }
 
 QTEST_MAIN(test_Archive)

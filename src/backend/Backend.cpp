@@ -101,7 +101,7 @@ void create_config_dirs()
 // A game started afterwards (the built-in player, an emulator, a port) then cannot take the screen and shows nothing.
 // So the master role is handed over explicitly: dropped before the game starts, taken back when it has ended.
 //
-// Some display drivers (seen on a Rockchip RK3288) come back with the main plane detached after a game that drew through its own
+// Some display drivers (seen on some Rockchip SoCs) come back with the main plane detached after a game that drew through its own
 // KMS session: the player cannot restore the screen, the kernel then answers every page flip of the frontend with "resource busy"
 // and the picture stays frozen. So the screen mode is remembered before the master role is dropped, and set again if the main
 // plane has lost its framebuffer when the role is taken back. The DRM functions are looked up at run time (libdrm is there

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Ponia.Roms/BIOS：找资料夹、连结进 system 目录、根目录 zip 的分流、MAME 暂存目录。
+// Ponia.Roms/BIOS: folder lookup, linking into the system directory, routing of root-level zips, MAME staging directory.
 
 #include <QtTest/QtTest>
 
@@ -70,7 +70,7 @@ void test_BiosSync::sync_tree_and_root_zips()
     QVERIFY(QFile::exists(sys + "/fbneo/neogeo.zip"));
     QVERIFY(QFile::exists(sys + "/mame2003-plus/neogeo.zip"));
     QVERIFY(!QFile::exists(sys + "/README.md"));
-    // 再跑一次不出错、结果相同
+    // running again succeeds with the same result
     QVERIFY(ponia::sync_bios(s(t.path() + "/bios"), s(sys)) >= 5);
     QCOMPARE(QFile(sys + "/dc/dc_boot.bin").size(), 2);
 }
@@ -95,9 +95,9 @@ void test_BiosSync::mame_stage()
     const std::string out = ponia::stage_mame_content(s(t.path() + "/roms/sf2m4.zip"), s(t.path() + "/bios"), s(t.path() + "/stage"));
     QCOMPARE(QString::fromStdString(out), t.path() + "/stage/sf2m4.zip");
     QVERIFY(QFile::exists(t.path() + "/stage/sf2m4.zip"));
-    QVERIFY(QFile::exists(t.path() + "/stage/sf2.zip"));       // parent 一起带过去
-    QVERIFY(QFile::exists(t.path() + "/stage/neogeo.zip"));    // BIOS 也在
-    // 换一款游戏再暂存：上一款的连结要清掉
+    QVERIFY(QFile::exists(t.path() + "/stage/sf2.zip"));       // parent is carried along
+    QVERIFY(QFile::exists(t.path() + "/stage/neogeo.zip"));    // BIOS is present too
+    // staging another game: links of the previous one must be removed
     touch(t.path() + "/roms2/other.zip", "o");
     ponia::stage_mame_content(s(t.path() + "/roms2/other.zip"), s(t.path() + "/bios"), s(t.path() + "/stage"));
     QVERIFY(!QFile::exists(t.path() + "/stage/sf2m4.zip"));
