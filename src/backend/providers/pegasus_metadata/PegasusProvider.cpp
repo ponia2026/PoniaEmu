@@ -46,14 +46,31 @@ std::vector<QString> find_metafiles_in(const QString& dir_path)
     constexpr auto dir_flags = QDirIterator::FollowSymlinks;
 
     std::vector<QString> result;
+    bool has_ponia_file = false;
+    std::vector<QString> other_files;
 
     QDirIterator dir_it(dir_path, dir_filters, dir_flags);
     while (dir_it.hasNext()) {
         dir_it.next();
-        if (is_metadata_file(dir_it.fileName())) {
-            QString path = ::clean_abs_path(dir_it.fileInfo());
+        const QString name = dir_it.fileName();
+        if (!is_metadata_file(name))
+            continue;
+        QString path = ::clean_abs_path(dir_it.fileInfo());
+        if (name.endsWith(QLatin1String("metadata.ponia.txt"))) {
+            has_ponia_file = true;
             result.emplace_back(std::move(path));
         }
+        else {
+            other_files.emplace_back(std::move(path));
+        }
+    }
+
+    // A folder that carries a Ponia metadata file is described by it alone: the Pegasus file next to it
+    // may hold launch commands for another system, which would override the built-in launchers.
+    if (!has_ponia_file) {
+        result.insert(result.end(),
+            std::make_move_iterator(other_files.begin()),
+            std::make_move_iterator(other_files.end()));
     }
 
     return result;
