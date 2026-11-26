@@ -25,7 +25,7 @@ Error {
                 + "<br>"
                 + "If you still see this message, make sure your config files are readable,"
                 + " exist in one of the expected locations and are in the expected format.")
-            .arg("https://github.com/ponia2026/PoniaEmu")
+            .arg("https://ponia.org/product/poniaemu/")
             + api.tr
     instruction: qsTr("Press the Right button (→) to open the menu, then go to Settings → \"Set game directories...\" to add your ROM folders.") + api.tr
                  + "\n\n" + qsTr("Please see the log file for more details.") + api.tr

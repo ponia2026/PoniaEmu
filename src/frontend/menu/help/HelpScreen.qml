@@ -102,7 +102,7 @@ MenuScreen {
                     padding: bodyFontSize
                 }
                 QrBox {
-                    url: "github.com/ponia2026/PoniaEmu"
+                    url: "ponia.org/product/poniaemu/"
                     image: "qrc:/frontend/assets/qr-docs.png"
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
